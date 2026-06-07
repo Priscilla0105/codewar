@@ -1,0 +1,201 @@
+{
+  "users": [
+    {
+      "id": "admin-id-priscilla",
+      "username": "Priscilla",
+      "email": "priscilla.mailbox0105@gmail.com",
+      "role": "admin",
+      "isBanned": false,
+      "name": "Priscilla",
+      "bio": "Crafting code in Clash Arena.",
+      "online": false,
+      "lastActiveAt": "2026-06-05T07:38:43.681Z",
+      "xp": 140,
+      "level": 2,
+      "stats": {
+        "rating": 1469,
+        "wins": 10,
+        "losses": 2,
+        "draws": 0,
+        "streak": 5,
+        "typingWpm": 67,
+        "accuracy": 87,
+        "solvedEasy": 0,
+        "solvedMedium": 0,
+        "solvedHard": 0,
+        "activityHistory": []
+      }
+    },
+    {
+      "id": "u_14q578t40",
+      "username": "Sanjai.lx",
+      "email": "sanjaikumar62297@gmail.com",
+      "role": "user",
+      "isBanned": false,
+      "name": "Sanjai.lx",
+      "bio": "Crafting code in Clash Arena.",
+      "online": false,
+      "lastActiveAt": "2026-05-29T16:58:40.834Z",
+      "xp": 0,
+      "level": 1,
+      "stats": {
+        "rating": 1000,
+        "wins": 0,
+        "losses": 0,
+        "draws": 0,
+        "streak": 1,
+        "typingWpm": 45,
+        "accuracy": 100,
+        "solvedEasy": 0,
+        "solvedMedium": 0,
+        "solvedHard": 0,
+        "activityHistory": []
+      }
+    }
+  ],
+  "loginHistory": {
+    "u_14q578t40": [
+      {
+        "date": "2026-05-29T16:50:54.972Z",
+        "ipAddress": "127.0.0.1",
+        "device": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
+        "location": "System Portal Authentication"
+      },
+      {
+        "date": "2026-05-29T12:25:42.891Z",
+        "ipAddress": "127.0.0.1",
+        "device": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
+        "location": "System Portal Authentication"
+      },
+      {
+        "date": "2026-05-29T11:56:04.811Z",
+        "ipAddress": "127.0.0.1",
+        "device": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
+        "location": "System Portal Authentication"
+      },
+      {
+        "date": "2026-05-29T11:22:19.262Z",
+        "ipAddress": "127.0.0.1",
+        "device": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
+        "location": "System Portal Initial Registration"
+      }
+    ],
+    "admin-id-priscilla": [
+      {
+        "date": "2026-06-03T12:41:28.364Z",
+        "ipAddress": "127.0.0.1",
+        "device": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.122.1 Chrome/142.0.7444.265 Electron/39.8.8 Safari/537.36",
+        "location": "System Portal Authentication"
+      },
+      {
+        "date": "2026-06-03T12:29:18.808Z",
+        "ipAddress": "127.0.0.1",
+        "device": "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-IN) WindowsPowerShell/5.1.22621.4249",
+        "location": "System Portal Authentication"
+      },
+      {
+        "date": "2026-05-30T06:00:50.609Z",
+        "ipAddress": "127.0.0.1",
+        "device": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
+        "location": "System Portal Authentication"
+      }
+    ]
+  },
+  "matchHistory": {
+    "admin-id-priscilla": [
+      {
+        "id": "ai_battle_1xrq7d3jn",
+        "opponentId": "ai_bot",
+        "opponentName": "AI_Elite_Competitor",
+        "difficulty": "Easy",
+        "status": "loss",
+        "eloChange": -16,
+        "date": "2026-05-30T06:18:19.298Z",
+        "problemTitle": "Two Sum",
+        "isPractice": false
+      },
+      {
+        "id": "ai_battle_kljo436db",
+        "opponentId": "ai_bot",
+        "opponentName": "AI_Elite_Competitor",
+        "difficulty": "Easy",
+        "status": "loss",
+        "eloChange": -15,
+        "date": "2026-05-30T06:04:21.981Z",
+        "problemTitle": "Two Sum (Variation #97)",
+        "isPractice": false
+      }
+    ]
+  },
+  "submissions": [],
+  "chatHistory": {
+    "ai_battle_kljo436db": [
+      {
+        "id": "c_ai_cmt_6z603132n",
+        "senderId": "ai_bot",
+        "lobbyId": "ai_battle_kljo436db",
+        "senderName": "AI_Elite_Competitor",
+        "message": "Complexity benchmark looks extremely lightweight on my end.",
+        "timestamp": "2026-05-30T06:03:06.305Z",
+        "isAi": true
+      },
+      {
+        "id": "c_ai_cmt_ihstnrwqt",
+        "senderId": "ai_bot",
+        "lobbyId": "ai_battle_kljo436db",
+        "senderName": "AI_Elite_Competitor",
+        "message": "Complexity benchmark looks extremely lightweight on my end.",
+        "timestamp": "2026-05-30T06:03:10.356Z",
+        "isAi": true
+      },
+      {
+        "id": "c_ai_cmt_szny5rcmb",
+        "senderId": "ai_bot",
+        "lobbyId": "ai_battle_kljo436db",
+        "senderName": "AI_Elite_Competitor",
+        "message": "Passing visible test suites check. Writing optimized heuristics now.",
+        "timestamp": "2026-05-30T06:03:28.516Z",
+        "isAi": true
+      },
+      {
+        "id": "c_ai_cmt_f5cd5wtc9",
+        "senderId": "ai_bot",
+        "lobbyId": "ai_battle_kljo436db",
+        "senderName": "AI_Elite_Competitor",
+        "message": "Semicolon check complete. Logic compiles nicely.",
+        "timestamp": "2026-05-30T06:03:30.534Z",
+        "isAi": true
+      },
+      {
+        "id": "c_ai_done_ie3d7ud29",
+        "senderId": "ai_bot",
+        "lobbyId": "ai_battle_kljo436db",
+        "senderName": "AI_Elite_Competitor",
+        "message": "Perfect! All test checks cleared. Solved!",
+        "timestamp": "2026-05-30T06:04:21.979Z",
+        "isAi": true
+      }
+    ],
+    "ai_battle_1xrq7d3jn": [
+      {
+        "id": "c_ai_cmt_uitd6qzod",
+        "senderId": "ai_bot",
+        "lobbyId": "ai_battle_1xrq7d3jn",
+        "senderName": "AI_Elite_Competitor",
+        "message": "Passing visible test suites check. Writing optimized heuristics now.",
+        "timestamp": "2026-05-30T06:17:43.983Z",
+        "isAi": true
+      },
+      {
+        "id": "c_ai_done_996ka1c0g",
+        "senderId": "ai_bot",
+        "lobbyId": "ai_battle_1xrq7d3jn",
+        "senderName": "AI_Elite_Competitor",
+        "message": "Perfect! All test checks cleared. Solved!",
+        "timestamp": "2026-05-30T06:18:19.296Z",
+        "isAi": true
+      }
+    ]
+  },
+  "cheatingLogs": []
+}
