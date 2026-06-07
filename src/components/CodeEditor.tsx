@@ -246,7 +246,7 @@ export default memo(function CodeEditor({
           value={code}
           onChange={(value) => setCode(value ?? "")}
           onMount={handleEditorMount}
-          theme="cyber-arena"
+          theme="vs-dark"
           options={{
             minimap: { enabled: false },
             fontSize: 13,

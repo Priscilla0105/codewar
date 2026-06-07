@@ -165,6 +165,26 @@ export default memo(function BattleArena({
     }
   }, [isPractice, isFlagged, enterFullscreen]);
 
+  const [timeLeft, setTimeLeft] = useState(300); // 5 mins
+  useEffect(() => {
+  const timer = setInterval(() => {
+    setTimeLeft((prev) => {
+      if (prev <= 1) {
+        clearInterval(timer);
+        return 0;
+      }
+      return prev - 1;
+    });
+  }, 1000);
+
+  return () => clearInterval(timer);
+}, []);
+const formatTime = (seconds: number) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+};
+
   const handleLanguageChange = useCallback((lang: string) => {
     setLanguage(lang);
     setShowDropdown(false);
@@ -228,7 +248,6 @@ export default memo(function BattleArena({
         <div className="flex-1 flex items-center gap-4 mx-4">
           <div className="flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5 text-[#FFC107]" />
-            <span className="text-[10px] text-[#F5F5F5]">15:42</span>
           </div>
           <div className="h-1 flex-1 bg-[#111111] rounded-full overflow-hidden">
             <div className="h-full w-3/4 bg-gradient-to-r from-[#FFC107] to-[#FFD54F]" />
