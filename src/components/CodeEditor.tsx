@@ -50,33 +50,39 @@ const defineCyberArenaTheme = () => {
       base: "vs-dark",
       inherit: true,
       rules: [
-        { token: "keyword", foreground: "#ffc700", fontStyle: "bold" },
-        { token: "keyword.control", foreground: "#ffd700" },
-        { token: "string", foreground: "#00cc44" },
-        { token: "string.escape", foreground: "#66ff99" },
-        { token: "comment", foreground: "#999999", fontStyle: "italic" },
-        { token: "number", foreground: "#66b3ff" },
+        { token: "keyword", foreground: "#FFC107", fontStyle: "bold" },
+        { token: "keyword.control", foreground: "#FFD54F" },
+        { token: "string", foreground: "#FFD54F" },
+        { token: "string.escape", foreground: "#FFE082" },
+        { token: "comment", foreground: "#8A8A8A", fontStyle: "italic" },
+        { token: "number", foreground: "#F5F5F5" },
         { token: "entity.name.function", foreground: "#ffaa55" },
         { token: "entity.name.type", foreground: "#00cc44" },
-        { token: "storage.type", foreground: "#ffc700" },
+        { token: "storage.type", foreground: "#FFC107" },
         { token: "variable", foreground: "#e0e0e0" },
-        { token: "keyword.operator", foreground: "#ffc700" },
-        { token: "delimiter.bracket", foreground: "#999999" },
+        { token: "keyword.operator", foreground: "#FFC107" },
+        { token: "delimiter.bracket", foreground: "#8A8A8A" },
       ],
       colors: {
-        "editor.background": "#0a0a0a",
-        "editor.foreground": "#e0e0e0",
-        "editor.lineNumbersBackground": "#000000",
-        "editor.lineNumbersForeground": "#555555",
-        "editor.selectionBackground": "#ffc700" + "40",
-        "editor.selectionHighlightBackground": "#00cc44" + "20",
-        "editorCursor.foreground": "#ffc700",
-        "editorWhitespace.foreground": "#555555" + "80",
-        "editorBracketMatch.background": "#ffc700" + "20",
-        "editorBracketMatch.border": "#ffc700" + "60",
-        "editor.findMatchBackground": "#ffd700" + "40",
-        "editor.findMatchHighlightBackground": "#00cc44" + "30",
-      },
+  "editor.background": "#050505",
+  "editor.foreground": "#F5F5F5",
+
+  "editor.lineNumbersBackground": "#050505",
+  "editor.lineNumbersForeground": "#8A8A8A",
+
+  "editor.selectionBackground": "#FFC10740",
+  "editor.selectionHighlightBackground": "#FFD54F20",
+
+  "editorCursor.foreground": "#FFC107",
+
+  "editorWhitespace.foreground": "#8A8A8A40",
+
+  "editorBracketMatch.background": "#FFC10720",
+  "editorBracketMatch.border": "#FFC10760",
+
+  "editor.findMatchBackground": "#FFC10740",
+  "editor.findMatchHighlightBackground": "#FFD54F30",
+},
     });
   }
 };
@@ -173,13 +179,13 @@ export default memo(function CodeEditor({
   return (
     <div
       ref={containerRef}
-      className="flex flex-col h-full bg-[#0a0a0a] overflow-hidden font-['Space_Grotesk']"
+      className="flex flex-col h-full bg-[#050505] overflow-hidden font-['Space_Grotesk']"
     >
       {/* Header */}
-      <div className="bg-[#1a1a1a] border-b border-[#999999]/20 px-3 py-2.5 flex items-center gap-2 shrink-0">
-        <span className="text-[10px] font-bold text-[#ffc700] uppercase tracking-[0.08em]">Editor</span>
+      <div className="bg-[#0D0D0D] border-b border-[#8A8A8A]/20 px-3 py-2.5 flex items-center gap-2 shrink-0">
+        <span className="text-[10px] font-bold text-[#FFC107] uppercase tracking-[0.08em]">Editor</span>
         {unsavedChanges && (
-          <span className="text-[9px] text-[#ffc700] flex items-center gap-1">
+          <span className="text-[9px] text-[#FFC107] flex items-center gap-1">
             <AlertCircle className="w-3 h-3" />
             Unsaved
           </span>
@@ -190,22 +196,22 @@ export default memo(function CodeEditor({
           <button
             onClick={() => !disabled && setShowDropdown((v) => !v)}
             disabled={disabled}
-            className="flex items-center gap-1.5 px-2 py-1 text-[10px] bg-[#242424] hover:bg-[#2e2e2e] border border-[#555555] hover:border-[#ffc700]/50 rounded text-[#ffffff] disabled:opacity-40 transition-colors"
+            className="flex items-center gap-1.5 px-2 py-1 text-[10px] bg-[#111111] hover:bg-[#2e2e2e] border border-[#555555] hover:border-[#FFC107]/50 rounded text-[#ffffff] disabled:opacity-40 transition-colors"
           >
             {currentLang.label}
             <ChevronDown className={`w-3 h-3 transition-transform ${showDropdown ? "rotate-180" : ""}`} />
           </button>
 
           {showDropdown && (
-            <ul className="absolute top-full left-0 mt-1 bg-[#1a1a1a] border border-[#555555] rounded shadow-2xl z-50 min-w-[130px] py-1 overflow-hidden">
+            <ul className="absolute top-full left-0 mt-1 bg-[#0D0D0D] border border-[#555555] rounded shadow-2xl z-50 min-w-[130px] py-1 overflow-hidden">
               {SUPPORTED_LANGUAGES.map((lang) => (
                 <li key={lang.value}>
                   <button
                     onClick={() => handleLanguageChange(lang.value)}
                     className={`w-full text-left px-3 py-1.5 text-[10px] transition-colors ${
                       language === lang.value
-                        ? "bg-[#ffc700]/20 text-[#ffc700] font-semibold"
-                        : "text-[#cccccc] hover:bg-[#242424]"
+                        ? "bg-[#FFC107]/20 text-[#FFC107] font-semibold"
+                        : "text-[#F5F5F5] hover:bg-[#111111]"
                     }`}
                   >
                     {lang.label}
@@ -223,18 +229,18 @@ export default memo(function CodeEditor({
           <button
             onClick={handleCopy}
             disabled={disabled || !code}
-            className="p-1.5 text-[#999999] hover:text-[#ffc700] hover:bg-[#242424] rounded disabled:opacity-40 transition-colors"
+            className="p-1.5 text-[#8A8A8A] hover:text-[#FFC107] hover:bg-[#111111] rounded disabled:opacity-40 transition-colors"
           >
             {copied ? <Check className="w-3.5 h-3.5 text-[#00cc44]" /> : <Copy className="w-3.5 h-3.5" />}
           </button>
 
-          <div className="flex items-center gap-1.5 px-2 py-1 bg-[#242424] rounded border border-[#555555]">
+          <div className="flex items-center gap-1.5 px-2 py-1 bg-[#111111] rounded border border-[#555555]">
             <div
               className={`w-1.5 h-1.5 rounded-full transition-all ${
-                saveIndicator === "saving" ? "bg-[#ffc700] animate-pulse" : saveIndicator === "error" ? "bg-[#ff6b6b]" : "bg-[#00cc44]"
+                saveIndicator === "saving" ? "bg-[#FFC107] animate-pulse" : saveIndicator === "error" ? "bg-[#ff6b6b]" : "bg-[#00cc44]"
               }`}
             />
-            <span className="text-[9px] text-[#999999] whitespace-nowrap">
+            <span className="text-[9px] text-[#8A8A8A] whitespace-nowrap">
               {saveIndicator === "saving" ? "Saving…" : saveIndicator === "error" ? "Save failed" : "Auto-saved"}
             </span>
           </div>
@@ -279,7 +285,7 @@ export default memo(function CodeEditor({
       </div>
 
       {/* Footer */}
-      <div className="bg-[#1a1a1a] border-t border-[#999999]/20 px-3 py-2 flex items-center gap-2 shrink-0">
+      <div className="bg-[#0D0D0D] border-t border-[#8A8A8A]/20 px-3 py-2 flex items-center gap-2 shrink-0">
         <button
           onClick={onRun}
           disabled={disabled || isRunning || isSubmitting}
@@ -292,16 +298,16 @@ export default memo(function CodeEditor({
         <button
           onClick={onSubmit}
           disabled={disabled || isRunning || isSubmitting}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#ffc700] hover:bg-[#ffd700] disabled:opacity-50 text-black text-xs font-bold rounded transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#FFC107] hover:bg-[#FFD54F] disabled:opacity-50 text-black text-xs font-bold rounded transition-colors"
         >
           {isSubmitting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
           {isSubmitting ? "Submitting…" : "Submit"}
         </button>
 
         {executionStats && (
-          <div className="flex items-center gap-2 ml-2 px-2 py-1 bg-[#242424] rounded border border-[#555555]">
-            {executionStats.runtime && <span className="text-[9px] text-[#999999]">{executionStats.runtime}ms</span>}
-            {executionStats.memory && <span className="text-[9px] text-[#999999]">{executionStats.memory}MB</span>}
+          <div className="flex items-center gap-2 ml-2 px-2 py-1 bg-[#111111] rounded border border-[#555555]">
+            {executionStats.runtime && <span className="text-[9px] text-[#8A8A8A]">{executionStats.runtime}ms</span>}
+            {executionStats.memory && <span className="text-[9px] text-[#8A8A8A]">{executionStats.memory}MB</span>}
           </div>
         )}
 

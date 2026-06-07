@@ -10,32 +10,32 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        'surface': '#0a0a0a',
+        'surface': '#050505',
         'surface-dim': '#000000',
         'surface-bright': '#2a2a2a',
         'surface-container-lowest': '#000000',
-        'surface-container-low': '#1a1a1a',
-        'surface-container': '#242424',
+        'surface-container-low': '#0D0D0D',
+        'surface-container': '#111111',
         'surface-container-high': '#2e2e2e',
         'surface-container-highest': '#383838',
         'surface-variant': '#1e1e1e',
         
         'on-surface': '#ffffff',
-        'on-surface-variant': '#cccccc',
+        'on-surface-variant': '#F5F5F5',
         'inverse-surface': '#ffffff',
-        'inverse-on-surface': '#0a0a0a',
+        'inverse-on-surface': '#050505',
         
-        'outline': '#999999',
+        'outline': '#8A8A8A',
         'outline-variant': '#555555',
-        'surface-tint': '#ffc700',
+        'surface-tint': '#FFC107',
         
-        'primary': '#ffc700',
+        'primary': '#FFC107',
         'on-primary': '#000000',
-        'primary-container': '#ffd700',
-        'on-primary-container': '#1a1a1a',
+        'primary-container': '#FFD54F',
+        'on-primary-container': '#0D0D0D',
         'inverse-primary': '#ffb600',
-        'primary-fixed': '#ffd700',
-        'primary-fixed-dim': '#ffc700',
+        'primary-fixed': '#FFD54F',
+        'primary-fixed-dim': '#FFC107',
         'on-primary-fixed': '#000000',
         'on-primary-fixed-variant': '#332200',
         
@@ -62,7 +62,7 @@ const config: Config = {
         'error-container': '#cc0000',
         'on-error-container': '#ffffff',
         
-        'background': '#0a0a0a',
+        'background': '#050505',
         'on-background': '#ffffff',
       },
       
@@ -134,8 +134,8 @@ const config: Config = {
       },
       
       backgroundImage: {
-        'gradient-gold': 'linear-gradient(135deg, #ffc700 0%, #ffd700 100%)',
-        'gradient-cyber': 'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%)',
+        'gradient-gold': 'linear-gradient(135deg, #FFC107 0%, #FFD54F 100%)',
+        'gradient-cyber': 'linear-gradient(135deg, #050505 0%, #0D0D0D 100%)',
       },
     },
   },
