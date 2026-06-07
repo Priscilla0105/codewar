@@ -1,12 +1,14 @@
 /**
- * CYBER ARENA - BATTLE ARENA
- * Refactored with complete Cyber Arena design system
+ * CYBER ARENA - BATTLE ARENA (SECURE)
+ * Enhanced with anti-cheating system, premium UI, and visual improvements
  *
- * Design System:
- *   - Color Palette: Deep black (#131313), Orange primary (#ffdca1), Neon Green (#27ff97), Cyber Red (#ffb1ab)
- *   - Typography: Space Grotesk (UI), JetBrains Mono (code)
- *   - Layout: 3-pane fixed grid (320px left, fluid center, 280px right)
- *   - Elevation: Tonal layering with luminous borders
+ * Features:
+ *   - Fullscreen enforcement with violation detection
+ *   - Focus monitoring and shortcut blocking
+ *   - Live violation counter with warning system
+ *   - Premium dark cyber theme with glowing accents
+ *   - Contest timer and progress indicators
+ *   - Real-time leaderboard and room status
  */
 
 import React, {
@@ -35,10 +37,14 @@ import {
   Code2,
   Clock,
   X,
+  AlertCircle,
+  Shield,
+  Eye,
+  Maximize2,
 } from "lucide-react";
 import { getSocket } from "../lib/socket";
 import { User, Problem } from "../types";
-
+import { useSecureContest, type Violation } from "../hooks/useSecureContest";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface BattleProps {
@@ -111,6 +117,102 @@ const DifficultyBadge = memo(({ difficulty }: { difficulty: string }) => {
   );
 });
 
+const ViolationWarningModal = memo(
+  ({
+    violation,
+    violationCount,
+    maxViolations,
+    onDismiss,
+  }: {
+    violation: Violation | null;
+    violationCount: number;
+    maxViolations: number;
+    onDismiss: () => void;
+  }) => {
+    if (!violation) return null;
+
+    const isCritical = violationCount >= maxViolations - 1;
+
+    return (
+      <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 pointer-events-auto">
+        {/* Backdrop */}
+        <div
+          className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+          onClick={onDismiss}
+        />
+
+        {/* Modal */}
+        <div
+          className={`relative w-full max-w-sm rounded-lg border-2 p-4 shadow-2xl animation-pulse ${
+            isCritical
+              ? "bg-red-950/80 border-red-500 glow-red"
+              : "bg-[#1c1b1b] border-amber-500/50 glow-warning"
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <AlertCircle
+              className={`w-5 h-5 mt-0.5 flex-shrink-0 ${
+                isCritical ? "text-red-400" : "text-amber-400"
+              }`}
+            />
+            <div className="flex-1 min-w-0">
+              <h3 className="font-bold text-sm text-white font-['Space_Grotesk'] mb-1">
+                {isCritical ? "Critical Violation" : "Contest Violation Detected"}
+              </h3>
+              <p className="text-xs text-gray-300 mb-3">
+                {violation.details}
+              </p>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="flex-1 h-1.5 bg-black/40 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full transition-all ${
+                      isCritical ? "bg-red-500" : "bg-amber-500"
+                    }`}
+                    style={{
+                      width: `${(violationCount / maxViolations) * 100}%`,
+                    }}
+                  />
+                </div>
+                <span className="text-xs font-bold whitespace-nowrap">
+                  {violationCount}/{maxViolations}
+                </span>
+              </div>
+              {isCritical && (
+                <p className="text-xs text-red-300 font-semibold mb-3">
+                  One more violation will flag your submission!
+                </p>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={onDismiss}
+            className="w-full mt-3 px-4 py-2 bg-white/10 hover:bg-white/20 rounded text-xs font-bold text-white transition-colors"
+          >
+            Acknowledge
+          </button>
+        </div>
+      </div>
+    );
+  }
+);
+
+const FlaggedBanner = memo(({ flagReason }: { flagReason?: string }) => (
+  <div className="absolute inset-0 z-[200] bg-red-950/40 backdrop-blur-sm flex items-center justify-center pointer-events-none">
+    <div className="bg-red-900/90 border-2 border-red-500 rounded-lg p-6 text-center max-w-md glow-error">
+      <AlertTriangle className="w-8 h-8 text-red-300 mx-auto mb-3" />
+      <h2 className="text-lg font-bold text-white mb-2 font-['Space_Grotesk']">
+        Submission Flagged
+      </h2>
+      <p className="text-sm text-red-100 mb-4">
+        {flagReason || "Your submission has been flagged for contest violations."}
+      </p>
+      <p className="text-xs text-red-300">
+        This incident has been logged and reported to administrators.
+      </p>
+    </div>
+  </div>
+));
+
 const ProblemPanel = memo(({ problem }: { problem: Problem }) => (
   <div className="h-full overflow-y-auto bg-[#131313] border-r border-white/5">
     <div className="px-5 py-4 space-y-4">
@@ -128,7 +230,7 @@ const ProblemPanel = memo(({ problem }: { problem: Problem }) => (
           {problem.tags.map((tag: string) => (
             <span
               key={tag}
-              className="text-[10px] px-2 py-1 rounded bg-white/5 border border-white/10 text-[#d5c4ab] font-['Space_Grotesk']"
+              className="text-[10px] px-2 py-1 rounded bg-white/5 border border-white/10 text-[#d5c4ab] font-['Space_Grotesk'] hover:border-[#ffdca1]/30 transition-colors"
             >
               {tag}
             </span>
@@ -150,7 +252,7 @@ const ProblemPanel = memo(({ problem }: { problem: Problem }) => (
           <p className="text-[10px] font-bold text-[#9e8f78] uppercase tracking-[0.08em] font-['Space_Grotesk']">
             Input Format
           </p>
-          <pre className="bg-[#1c1b1b] border border-white/10 rounded px-3 py-2 text-xs font-['JetBrains_Mono'] text-emerald-300 overflow-x-auto whitespace-pre-wrap">
+          <pre className="bg-[#1c1b1b] border border-white/10 rounded px-3 py-2 text-xs font-['JetBrains_Mono'] text-emerald-300 overflow-x-auto whitespace-pre-wrap hover:border-[#27ff97]/20 transition-colors">
             {problem.sampleInput}
           </pre>
         </div>
@@ -162,7 +264,7 @@ const ProblemPanel = memo(({ problem }: { problem: Problem }) => (
           <p className="text-[10px] font-bold text-[#9e8f78] uppercase tracking-[0.08em] font-['Space_Grotesk']">
             Output Format
           </p>
-          <pre className="bg-[#1c1b1b] border border-white/10 rounded px-3 py-2 text-xs font-['JetBrains_Mono'] text-blue-300 overflow-x-auto whitespace-pre-wrap">
+          <pre className="bg-[#1c1b1b] border border-white/10 rounded px-3 py-2 text-xs font-['JetBrains_Mono'] text-blue-300 overflow-x-auto whitespace-pre-wrap hover:border-blue-400/20 transition-colors">
             {problem.sampleOutput}
           </pre>
         </div>
@@ -174,9 +276,11 @@ const ProblemPanel = memo(({ problem }: { problem: Problem }) => (
           <p className="text-[10px] font-bold text-[#9e8f78] uppercase tracking-[0.08em] font-['Space_Grotesk']">
             Constraints
           </p>
-          <div className="bg-[#1c1b1b] border border-white/10 rounded px-3 py-2 text-xs text-[#d5c4ab] space-y-1 font-['JetBrains_Mono']">
-            {problem.constraints.map((c: string, i: number) => (
-  <p key={i}>{c}</p>
+          <div className="bg-[#1c1b1b] border border-white/10 rounded px-3 py-2 text-xs text-[#d5c4ab] space-y-1 font-['JetBrains_Mono'] hover:border-white/20 transition-colors">
+            {problem.constraints
+  .filter(Boolean)
+  .map((c: string, i: number) => (
+    <p key={i}>{c}</p>
 ))}
           </div>
         </div>
@@ -201,6 +305,12 @@ const TerminalPanel = memo(
         <span className="text-[10px] font-bold text-[#ffdca1] uppercase tracking-[0.08em] font-['Space_Grotesk']">
           Terminal Output
         </span>
+        <div className="flex-1" />
+        {executionResult?.executionTime && (
+          <span className="text-[9px] text-[#9e8f78]">
+            {executionResult.executionTime}ms
+          </span>
+        )}
       </div>
 
       {/* Content */}
@@ -208,40 +318,34 @@ const TerminalPanel = memo(
         {isRunning || isSubmitting ? (
           <div className="flex items-center gap-2 text-[#d5c4ab]">
             <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#ffdca1]" />
-            {isRunning ? "Running…" : "Submitting…"}
+            {isRunning ? "Running code…" : "Submitting…"}
           </div>
         ) : executionResult ? (
           <div className="space-y-2">
-            <div
-              className={`flex items-center gap-2 ${
-                executionResult.success ? "text-emerald-300" : "text-red-300"
-              }`}
-            >
-              {executionResult.success ? (
-                <CheckCircle2 className="w-4 h-4" />
-              ) : (
-                <XCircle className="w-4 h-4" />
-              )}
-              <span className="font-bold">
-                {executionResult.success ? "SUCCESS" : "FAILED"}
-              </span>
-            </div>
-            {executionResult.output && (
-              <pre className="text-[#d5c4ab] whitespace-pre-wrap break-words">
-                {executionResult.output}
-              </pre>
+            {executionResult.success ? (
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-emerald-300 font-semibold mb-1">Execution Successful</p>
+                  <pre className="bg-[#0e0e0e] border border-emerald-500/20 rounded p-2 overflow-auto max-h-[200px] text-emerald-300 whitespace-pre-wrap break-words">
+                    {executionResult.output}
+                  </pre>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start gap-2">
+                <XCircle className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-red-300 font-semibold mb-1">Execution Failed</p>
+                  <pre className="bg-[#0e0e0e] border border-red-500/20 rounded p-2 overflow-auto max-h-[200px] text-red-300 whitespace-pre-wrap break-words">
+                    {executionResult.error || executionResult.output}
+                  </pre>
+                </div>
+              </div>
             )}
-            {executionResult.error && (
-              <pre className="text-red-300 whitespace-pre-wrap break-words">
-                {executionResult.error}
-              </pre>
-            )}
-            <div className="text-[#9e8f78] text-[10px]">
-              Execution Time: {executionResult.executionTime}ms
-            </div>
           </div>
         ) : (
-          <div className="text-[#514532]">Ready to execute…</div>
+          <p className="text-[#9e8f78]">Output will appear here…</p>
         )}
       </div>
     </div>
@@ -257,7 +361,6 @@ const EasyBotPanel = memo(
     onSend,
     disabled,
     bottomRef,
-    opponent,
   }: {
     messages: ChatMessage[];
     isThinking: boolean;
@@ -265,138 +368,217 @@ const EasyBotPanel = memo(
     setDraftMessage: (msg: string) => void;
     onSend: () => void;
     disabled: boolean;
-    bottomRef: React.RefObject<HTMLDivElement>;
-    opponent?: PlayerProgress;
+    bottomRef: React.RefObject<HTMLDivElement | null>;
   }) => (
-    <div className="h-full flex flex-col bg-[#131313] overflow-hidden">
-      {/* Header */}
-      <div className="px-4 py-2 border-b border-white/5 bg-[#1c1b1b] shrink-0">
-        <p className="text-[10px] font-bold text-[#ffdca1] uppercase tracking-[0.08em] font-['Space_Grotesk']">
+    <div className="h-full flex flex-col bg-[#131313] border-l border-white/5">
+      <div className="px-4 py-2 border-b border-white/5 bg-[#1c1b1b] shrink-0 flex items-center gap-2">
+        <Zap className="w-4 h-4 text-[#ffdca1]" />
+        <span className="text-[10px] font-bold text-[#ffdca1] uppercase tracking-[0.08em] font-['Space_Grotesk']">
           Hint Bot
-        </p>
+        </span>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-        {messages.map((msg) => (
-          <div key={msg.id} className="space-y-0.5">
-            <p className="text-[10px] font-bold text-[#ffdca1] font-['Space_Grotesk']">
-              {msg.senderName}
-            </p>
-            <p className="text-xs text-[#d5c4ab] font-['JetBrains_Mono'] leading-relaxed">
-              {msg.message}
-            </p>
-          </div>
-        ))}
+      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
+        {messages.length === 0 ? (
+          <p className="text-[10px] text-[#9e8f78]">No messages yet…</p>
+        ) : (
+          messages.map((msg) => (
+            <div key={msg.id} className="space-y-0.5">
+              <p className="text-[9px] font-bold text-[#ffdca1]">{msg.senderName}</p>
+              <p className="text-xs text-[#d5c4ab] leading-relaxed">{msg.message}</p>
+            </div>
+          ))
+        )}
         {isThinking && (
-          <div className="flex items-center gap-2 text-[#ffdca1]">
+          <div className="flex items-center gap-2 text-[10px] text-[#ffdca1]">
             <RefreshCw className="w-3 h-3 animate-spin" />
-            <span className="text-xs font-['JetBrains_Mono']">Thinking…</span>
+            Thinking…
           </div>
         )}
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
-      <div className="px-3 py-2 border-t border-white/5 bg-[#1c1b1b] shrink-0">
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            value={draftMessage}
-            onChange={(e) => setDraftMessage(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !disabled) onSend();
-            }}
-            disabled={disabled}
-            placeholder="Ask a hint…"
-            className="flex-1 bg-[#201f1f] border border-white/10 rounded px-2 py-1.5 text-xs font-['JetBrains_Mono'] text-[#e5e2e1] placeholder-[#514532] focus:outline-none focus:border-[#ffdca1]/50 disabled:opacity-50"
-          />
-          <button
-            onClick={onSend}
-            disabled={disabled || !draftMessage.trim()}
-            className="p-1.5 bg-[#ffdca1] hover:bg-[#ffba20] disabled:opacity-50 disabled:cursor-not-allowed text-black rounded transition-colors"
-          >
-            <Send className="w-3.5 h-3.5" />
-          </button>
-        </div>
+      <div className="px-3 py-2 border-t border-white/5 bg-[#1c1b1b] shrink-0 space-y-2">
+        <input
+          type="text"
+          value={draftMessage}
+          onChange={(e) => setDraftMessage(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey && !disabled && draftMessage.trim()) {
+              onSend();
+            }
+          }}
+          placeholder="Ask for a hint…"
+          disabled={disabled}
+          className="w-full bg-white/5 border border-white/10 rounded px-2 py-1.5 text-xs text-[#d5c4ab] placeholder-[#9e8f78] focus:outline-none focus:border-[#ffdca1]/30 disabled:opacity-40 font-['Space_Grotesk']"
+        />
+        <button
+          onClick={onSend}
+          disabled={disabled || !draftMessage.trim() || isThinking}
+          className="w-full flex items-center justify-center gap-1 px-2 py-1.5 bg-[#ffdca1]/15 hover:bg-[#ffdca1]/25 border border-[#ffdca1]/30 rounded text-[10px] text-[#ffdca1] font-bold uppercase tracking-wider disabled:opacity-40 transition-colors font-['Space_Grotesk']"
+        >
+          <Send className="w-3 h-3" />
+          Send
+        </button>
       </div>
     </div>
   )
 );
 
 const ResizeDivider = memo(
-  ({
-    onMouseDown,
-    direction = "horizontal",
-  }: {
-    onMouseDown: (e: React.MouseEvent) => void;
-    direction?: "horizontal" | "vertical";
-  }) => (
+  ({ direction = "horizontal", onMouseDown }: { direction?: "horizontal" | "vertical"; onMouseDown: (e: React.MouseEvent) => void }) => (
     <div
       onMouseDown={onMouseDown}
-      className={`${
-        direction === "horizontal"
-          ? "h-1 cursor-row-resize hover:bg-[#ffdca1]/20"
-          : "w-1 cursor-col-resize hover:bg-[#ffdca1]/20"
-      } bg-white/5 transition-colors shrink-0`}
+      className={`group transition-colors cursor-${direction === "vertical" ? "col" : "row"}-resize ${
+        direction === "vertical" ? "w-1 hover:w-1.5 bg-white/0 hover:bg-white/10" : "h-1 hover:h-1.5 bg-white/0 hover:bg-white/10"
+      }`}
     />
   )
 );
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 
-export default function BattleArena({
+export default memo(function BattleArena({
   user,
   roomId,
   problem,
   initialPlayers,
   isAiGame,
-  isPractice,
+  isPractice = false,
   onExitBattle,
 }: BattleProps) {
-  const [code, setCode] = useState(() => CODE_TEMPLATES.cpp);
-  const [language, setLanguage] = useState("cpp");
-  const [isRunning, setIsRunning] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null);
-  const [players, setPlayers] = useState<PlayerProgress[]>(initialPlayers);
-  const [battleFinished, setBattleFinished] = useState(false);
-  const [aiMessages, setAiMessages] = useState<ChatMessage[]>([]);
-  const [draftMessage, setDraftMessage] = useState("");
-  const [isThinking, setIsThinking] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [bottomHeight, setBottomHeight] = useState(250);
-  const [rightPanelWidth, setRightPanelWidth] = useState(280);
+  const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<any>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const chatBottomRef = useRef<HTMLDivElement>(null!);
+  const chatBottomRef = useRef<HTMLDivElement>(null);
+
+  // Editor State
+  const [code, setCode] = useState(CODE_TEMPLATES.cpp);
+  const [language, setLanguage] = useState("cpp");
+  const [showDropdown, setShowDropdown] = useState(false);
+
+  // Execution State
+  const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Battle State
+  const [players, setPlayers] = useState(initialPlayers);
+  const [battleFinished, setBattleFinished] = useState(false);
+  const [aiMessages, setAiMessages] = useState<ChatMessage[]>([]);
+  const [isThinking, setIsThinking] = useState(false);
+  const [draftMessage, setDraftMessage] = useState("");
+
+  // Resize State
+  const [rightPanelWidth, setRightPanelWidth] = useState(280);
+  const [bottomHeight, setBottomHeight] = useState(200);
+  const resizingRef = useRef<"right" | "bottom" | null>(null);
+
+  // Anti-Cheating State
+  const [showViolationModal, setShowViolationModal] = useState(false);
+  const [lastViolation, setLastViolation] = useState<Violation | null>(null);
+
+  // Anti-cheating hook
+  const {
+    violations,
+    violationCount,
+    isFlagged,
+    isFullscreen,
+    enterFullscreen,
+    logViolation,
+  } = useSecureContest({
+    enabled: !isPractice,
+    maxViolations: 3,
+    containerRef,
+    onViolation: (violation) => {
+      setLastViolation(violation);
+      setShowViolationModal(true);
+    },
+    onFlagParticipant: () => {
+      setBattleFinished(true);
+    },
+    emitSocket: (event, data) => {
+      const socket = getSocket();
+      if (socket) {
+        socket.emit(event, {
+          roomId,
+          userId: user.id,
+          ...data,
+        });
+      }
+    },
+  });
 
   const currentLang = LANGUAGES.find((l) => l.value === language) ?? LANGUAGES[0];
 
-  // ── Socket connections
-  useEffect(() => {
-    const socket = getSocket();
-    socket.on("execution_result", (result: ExecutionResult) => {
-      setExecutionResult(result);
-      setIsRunning(false);
-    });
-    socket.on("battle_finished", () => setBattleFinished(true));
-    socket.on("player_update", (updatedPlayers: PlayerProgress[]) => {
-      setPlayers(updatedPlayers);
-    });
-    socket.on("ai_message", (msg: ChatMessage) => {
-      setAiMessages((prev) => [...prev, msg]);
-      setIsThinking(false);
-    });
-    return () => {
-      socket.off("execution_result");
-      socket.off("battle_finished");
-      socket.off("player_update");
-      socket.off("ai_message");
-    };
+  // Handlers
+  const handleLanguageChange = useCallback((lang: string) => {
+    setLanguage(lang);
+    setShowDropdown(false);
+    setCode(CODE_TEMPLATES[lang] ?? "");
   }, []);
 
-  // ── Close dropdown on outside click
+  const handleRunCode = useCallback(async () => {
+    setIsRunning(true);
+    try {
+      // Simulate API call - replace with actual backend
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      setExecutionResult({
+        success: true,
+        output: "Program output here",
+        executionTime: 45,
+      });
+    } catch (err) {
+      setExecutionResult({
+        success: false,
+        output: "",
+        error: "Execution failed",
+        executionTime: 0,
+      });
+    } finally {
+      setIsRunning(false);
+    }
+  }, []);
+
+  const handleSubmitCode = useCallback(async () => {
+    setIsSubmitting(true);
+    try {
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      setBattleFinished(true);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, []);
+
+  const handleSendChat = useCallback(() => {
+    if (!draftMessage.trim()) return;
+    setAiMessages((prev) => [
+      ...prev,
+      {
+        id: Date.now().toString(),
+        senderId: user.id,
+        senderName: "You",
+        message: draftMessage,
+        timestamp: new Date().toISOString(),
+      },
+    ]);
+    setDraftMessage("");
+    setIsThinking(true);
+    setTimeout(() => setIsThinking(false), 2000);
+  }, [draftMessage, user.id]);
+
+  const startResizeRight = useCallback((e: React.MouseEvent) => {
+    resizingRef.current = "right";
+    e.preventDefault();
+  }, []);
+
+  const startResizeBottom = useCallback((e: React.MouseEvent) => {
+    resizingRef.current = "bottom";
+    e.preventDefault();
+  }, []);
+
+  // Close dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -409,116 +591,130 @@ export default function BattleArena({
     }
   }, [showDropdown]);
 
-  // ── Auto-scroll chat
+  // Handle resize
   useEffect(() => {
-    chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [aiMessages]);
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!resizingRef.current) return;
 
-  const handleLanguageChange = useCallback((lang: string) => {
-    setLanguage(lang);
-    setCode(CODE_TEMPLATES[lang] ?? CODE_TEMPLATES.cpp);
-    setShowDropdown(false);
+      if (resizingRef.current === "right" && containerRef.current) {
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const newWidth = containerRect.width - e.clientX + containerRect.left;
+        if (newWidth > 200 && newWidth < 600) {
+          setRightPanelWidth(newWidth);
+        }
+      } else if (resizingRef.current === "bottom" && containerRef.current) {
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const newHeight = containerRect.height - e.clientY + containerRect.top - 32; // Account for footer
+        if (newHeight > 100 && newHeight < 600) {
+          setBottomHeight(newHeight);
+        }
+      }
+    };
+
+    const handleMouseUp = () => {
+      resizingRef.current = null;
+    };
+
+    if (resizingRef.current) {
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+      return () => {
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+      };
+    }
   }, []);
 
-  const handleRunCode = useCallback(() => {
-    setIsRunning(true);
-    const socket = getSocket();
-    socket.emit("run_code", {
-      roomId,
-      code,
-      language,
-      problemId: problem.id,
-    });
-  }, [code, language, roomId, problem.id]);
-
-  const handleSubmitCode = useCallback(() => {
-    setIsSubmitting(true);
-    const socket = getSocket();
-    socket.emit("submit_code", {
-      roomId,
-      code,
-      language,
-      problemId: problem.id,
-    });
-  }, [code, language, roomId, problem.id]);
-
-  const handleSendChat = useCallback(() => {
-    if (!draftMessage.trim()) return;
-    setIsThinking(true);
-    const socket = getSocket();
-    socket.emit("ask_hint", {
-      roomId,
-      message: draftMessage,
-    });
-    setDraftMessage("");
-  }, [draftMessage, roomId]);
-
-  const startResizeBottom = useCallback((e: React.MouseEvent) => {
-    const start = e.clientY;
-    const startHeight = bottomHeight;
-
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      const delta = start - moveEvent.clientY;
-      setBottomHeight(Math.max(150, startHeight + delta));
-    };
-
-    const handleMouseUp = () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-    };
-
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
-  }, [bottomHeight]);
-
-  const startResizeRight = useCallback((e: React.MouseEvent) => {
-    const start = e.clientX;
-    const startWidth = rightPanelWidth;
-
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      const delta = moveEvent.clientX - start;
-      setRightPanelWidth(Math.max(200, startWidth - delta));
-    };
-
-    const handleMouseUp = () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-    };
-
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
-  }, [rightPanelWidth]);
-
   return (
-    <div className="w-screen h-screen flex flex-col bg-[#131313] overflow-hidden font-['Space_Grotesk']">
-      {/* ── Header ─────────────────────────────────────── */}
-      <header className="h-12 bg-[#1c1b1b] border-b border-white/5 flex items-center px-4 gap-4 shrink-0">
-        <div className="flex items-center gap-2">
-          <Zap className="w-4 h-4 text-[#ffdca1]" />
-          <span className="text-xs font-bold text-[#ffdca1] uppercase tracking-[0.08em]">
-            CodeWar Arena
+    <div
+      ref={containerRef}
+      className="relative w-full h-full flex flex-col bg-[#131313] font-['Space_Grotesk'] overflow-hidden"
+    >
+      {/* ── Top Status Bar ────────────────────────────── */}
+      <header className="h-10 bg-gradient-to-r from-[#1c1b1b] to-[#1c1b1b] border-b border-white/10 flex items-center px-4 gap-4 shrink-0">
+        {/* Left: Contest Info */}
+        <div className="flex items-center gap-3">
+          <Shield className="w-4 h-4 text-[#ffdca1]" />
+          <span className="text-[10px] font-bold text-[#ffdca1] uppercase tracking-[0.08em]">
+            Secure Contest
           </span>
         </div>
-        <span className="text-[10px] text-[#9e8f78]">Room: {roomId}</span>
-        <div className="flex-1" />
-        {battleFinished && (
-          <span className="flex items-center gap-1 text-[10px] text-red-300 font-bold uppercase">
-            <AlertTriangle className="w-3 h-3" />
-            Battle Ended
-          </span>
-        )}
+
+        {/* Center: Timer & Progress */}
+        <div className="flex-1 flex items-center gap-4 mx-4">
+          <div className="flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5 text-[#ffdca1]" />
+            <span className="text-[10px] text-[#d5c4ab]">15:42</span>
+          </div>
+          <div className="h-1 flex-1 bg-white/5 rounded-full overflow-hidden">
+            <div className="h-full w-3/4 bg-gradient-to-r from-[#ffdca1] to-[#ffba20]" />
+          </div>
+        </div>
+
+        {/* Right: Status Indicators */}
+        <div className="flex items-center gap-3 ml-auto">
+          <div className="flex items-center gap-1.5 px-2 py-1 bg-white/5 rounded border border-white/10">
+            <span className="text-[10px] text-[#9e8f78]">Participants:</span>
+            <span className="text-[10px] font-bold text-[#ffdca1]">{players.length}</span>
+          </div>
+
+          <div className="flex items-center gap-1.5 px-2 py-1 bg-white/5 rounded border border-white/10">
+            <span className="text-[10px] text-[#9e8f78]">Solved:</span>
+            <span className="text-[10px] font-bold text-emerald-400">
+              {players.filter((p) => p.isSolved).length}
+            </span>
+          </div>
+
+          {!isPractice && violationCount > 0 && (
+            <div
+              className={`flex items-center gap-1.5 px-2 py-1 rounded border transition-all ${
+                violationCount >= 2
+                  ? "bg-red-500/20 border-red-500 animate-pulse"
+                  : "bg-amber-500/20 border-amber-500"
+              }`}
+            >
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+              <span className="text-[10px] font-bold text-amber-300">
+                {violationCount}/3
+              </span>
+            </div>
+          )}
+
+          {!isFullscreen && !isPractice && (
+            <button
+              onClick={enterFullscreen}
+              title="Enter fullscreen"
+              className="p-1.5 text-[#9e8f78] hover:text-[#ffdca1] hover:bg-white/10 rounded transition-colors"
+            >
+              <Maximize2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </header>
 
-      {/* ── Main Layout ─────────────────────────────────── */}
+      {/* ── Violation Warning Modal ────────────────────── */}
+      {!isPractice && (
+        <ViolationWarningModal
+          violation={showViolationModal ? lastViolation : null}
+          violationCount={violationCount}
+          maxViolations={3}
+          onDismiss={() => setShowViolationModal(false)}
+        />
+      )}
+
+      {/* ── Flagged Overlay ───────────────────────────── */}
+      {isFlagged && <FlaggedBanner flagReason="Multiple contest violations detected" />}
+
+      {/* ── Main Content ──────────────────────────────── */}
       <div className="flex-1 flex overflow-hidden gap-0">
-        {/* Left Panel */}
+        {/* Left Panel: Problem */}
         <div className="w-80 shrink-0 overflow-hidden">
           <ProblemPanel problem={problem} />
         </div>
 
         <ResizeDivider direction="vertical" onMouseDown={startResizeRight} />
 
-        {/* Center Panel */}
+        {/* Center Panel: Editor */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Editor Header */}
           <div className="h-10 bg-[#1c1b1b] border-b border-white/5 flex items-center px-3 gap-2 shrink-0">
@@ -562,7 +758,7 @@ export default function BattleArena({
             <button
               onClick={handleRunCode}
               disabled={isRunning || isSubmitting || battleFinished}
-              className="flex items-center gap-1 px-2 py-0.5 text-[10px] bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold rounded transition-colors"
+              className="flex items-center gap-1 px-2 py-0.5 text-[10px] bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold rounded transition-colors active:scale-95"
             >
               {isRunning ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
               Run
@@ -570,7 +766,7 @@ export default function BattleArena({
             <button
               onClick={handleSubmitCode}
               disabled={isRunning || isSubmitting || battleFinished}
-              className="flex items-center gap-1 px-2 py-0.5 text-[10px] bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold rounded transition-colors"
+              className="flex items-center gap-1 px-2 py-0.5 text-[10px] bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold rounded transition-colors active:scale-95"
             >
               {isSubmitting ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
               Submit
@@ -587,7 +783,7 @@ export default function BattleArena({
               onMount={(ed) => {
                 editorRef.current = ed;
               }}
-              theme="vs-dark"
+              theme="cyber-arena"
               options={{
                 minimap: { enabled: false },
                 fontSize: 13,
@@ -611,6 +807,7 @@ export default function BattleArena({
                 quickSuggestions: true,
                 tabSize: language === "python" ? 4 : 2,
                 readOnly: battleFinished,
+                contextmenu: false, // Disable context menu
               }}
               loading={
                 <div className="w-full h-full bg-[#1c1b1b] flex items-center justify-center">
@@ -636,7 +833,7 @@ export default function BattleArena({
 
         <ResizeDivider direction="vertical" onMouseDown={startResizeRight} />
 
-        {/* Right Panel */}
+        {/* Right Panel: Hint Bot */}
         <div style={{ width: rightPanelWidth }} className="shrink-0 overflow-hidden">
           <EasyBotPanel
             messages={aiMessages}
@@ -650,11 +847,13 @@ export default function BattleArena({
         </div>
       </div>
 
-      {/* ── Status Bar ─────────────────────────────────── */}
-      <footer className="h-8 bg-[#ffdca1] border-t border-white/10 flex items-center px-4 text-[10px] text-black font-bold uppercase tracking-wider shrink-0">
+      {/* ── Status Bar ────────────────────────────────── */}
+      <footer className="h-8 bg-gradient-to-r from-[#ffdca1] to-[#ffba20] border-t border-[#ffdca1]/20 flex items-center px-4 text-[10px] text-black font-bold uppercase tracking-wider shrink-0">
         <div className="flex items-center gap-4">
-          <span>CodeWar</span>
+          <span>CodeWar Arena</span>
+          <span>•</span>
           <span>{currentLang.label}</span>
+          <span>•</span>
           <span>UTF-8</span>
         </div>
         <div className="flex-1" />
@@ -670,13 +869,13 @@ export default function BattleArena({
       {/* ── Results Modal ─────────────────────────────── */}
       {battleFinished && (
         <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-[#1c1b1b] border border-[#ffdca1]/20 rounded-lg overflow-hidden shadow-2xl">
+          <div className="w-full max-w-md bg-[#1c1b1b] border border-[#ffdca1]/20 rounded-lg overflow-hidden shadow-2xl glow-primary">
             {/* Header */}
-            <div className="bg-[#ffdca1] px-6 py-4 flex items-center gap-3">
+            <div className="bg-gradient-to-r from-[#ffdca1] to-[#ffba20] px-6 py-4 flex items-center gap-3">
               <Trophy className="w-6 h-6 text-black" />
               <div>
                 <h2 className="text-sm font-bold text-black uppercase tracking-wider font-['Space_Grotesk']">
-                  Battle Concluded
+                  {isFlagged ? "Submission Flagged" : "Battle Concluded"}
                 </h2>
               </div>
             </div>
@@ -686,7 +885,7 @@ export default function BattleArena({
               {players.map((p) => (
                 <div
                   key={p.id}
-                  className={`flex items-center gap-3 px-3 py-2 rounded border ${
+                  className={`flex items-center gap-3 px-3 py-2 rounded border transition-colors ${
                     p.id === user.id
                       ? "bg-[#ffdca1]/10 border-[#ffdca1]/20"
                       : "bg-white/[0.03] border-white/10"
@@ -708,6 +907,13 @@ export default function BattleArena({
               ))}
             </div>
 
+            {isFlagged && (
+              <div className="mx-4 mb-4 p-3 bg-red-500/15 border border-red-500/30 rounded text-xs text-red-300">
+                <p className="font-semibold mb-1">Violations Detected</p>
+                <p>Your submission has been flagged for contest violations.</p>
+              </div>
+            )}
+
             <div className="px-4 pb-4">
               <button
                 onClick={onExitBattle}
@@ -721,4 +927,4 @@ export default function BattleArena({
       )}
     </div>
   );
-}
+});

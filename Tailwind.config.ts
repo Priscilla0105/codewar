@@ -1,5 +1,5 @@
 // tailwind.config.ts
-// Complete Cyber Arena design system Tailwind configuration
+// Enhanced Cyber Arena design system with anti-cheating indicators and premium effects
 
 import type { Config } from 'tailwindcss'
 
@@ -157,47 +157,188 @@ const config: Config = {
         ],
       },
       
-      // Shadows & Glows
+      // Shadows & Glows - Enhanced for premium feel
       boxShadow: {
-        // Subtle glow for active elements
-        'glow-primary': '0 0 0 2px rgba(255, 220, 161, 0.1)',
-        'glow-success': '0 0 0 2px rgba(39, 255, 151, 0.1)',
-        'glow-error': '0 0 0 2px rgba(255, 177, 171, 0.1)',
+        // Primary Gold Glow
+        'glow-primary': '0 0 20px rgba(255, 220, 161, 0.3), 0 0 0 2px rgba(255, 220, 161, 0.1)',
+        'glow-primary-intense': '0 0 30px rgba(255, 220, 161, 0.5), 0 0 60px rgba(255, 220, 161, 0.2)',
         
-        // Inner glow
+        // Success Green Glow
+        'glow-success': '0 0 20px rgba(39, 255, 151, 0.3), 0 0 0 2px rgba(39, 255, 151, 0.1)',
+        'glow-success-intense': '0 0 30px rgba(39, 255, 151, 0.4), 0 0 60px rgba(39, 255, 151, 0.15)',
+        
+        // Error Red Glow
+        'glow-error': '0 0 20px rgba(255, 177, 171, 0.3), 0 0 0 2px rgba(255, 177, 171, 0.1)',
+        'glow-error-intense': '0 0 30px rgba(255, 114, 94, 0.5), 0 0 60px rgba(255, 114, 94, 0.2)',
+        
+        // Warning Amber Glow
+        'glow-warning': '0 0 20px rgba(251, 191, 36, 0.3), 0 0 0 2px rgba(251, 191, 36, 0.1)',
+        'glow-warning-intense': '0 0 30px rgba(251, 191, 36, 0.4), 0 0 60px rgba(251, 191, 36, 0.15)',
+        
+        // Inner glow for cards
         'inner-glow': 'inset 0 0 8px rgba(255, 220, 161, 0.05)',
+        'inner-glow-success': 'inset 0 0 8px rgba(39, 255, 151, 0.05)',
+        'inner-glow-error': 'inset 0 0 8px rgba(255, 114, 94, 0.05)',
+        
+        // Elevation shadows
+        'elevation-1': '0 2px 4px rgba(0, 0, 0, 0.3)',
+        'elevation-2': '0 4px 8px rgba(0, 0, 0, 0.4)',
+        'elevation-3': '0 8px 16px rgba(0, 0, 0, 0.5)',
       },
       
-      // Animation
+      // Animation - Enhanced contest and violation animations
       keyframes: {
+        // Subtle pulse
         'pulse-subtle': {
           '0%, 100%': { opacity: '1' },
           '50%': { opacity: '0.7' },
         },
+        
+        // Glow pulse
         'glow': {
           '0%, 100%': {
-            boxShadow: '0 0 0 2px rgba(255, 220, 161, 0.1)',
+            boxShadow: '0 0 20px rgba(255, 220, 161, 0.3), 0 0 0 2px rgba(255, 220, 161, 0.1)',
           },
           '50%': {
-            boxShadow: '0 0 0 2px rgba(255, 220, 161, 0.3)',
+            boxShadow: '0 0 30px rgba(255, 220, 161, 0.5), 0 0 60px rgba(255, 220, 161, 0.2)',
+          },
+        },
+        
+        // Danger pulse (for violations)
+        'pulse-danger': {
+          '0%, 100%': {
+            boxShadow: '0 0 0 0 rgba(255, 114, 94, 0.7)',
+          },
+          '50%': {
+            boxShadow: '0 0 0 10px rgba(255, 114, 94, 0)',
+          },
+        },
+        
+        // Warning pulse
+        'pulse-warning': {
+          '0%, 100%': {
+            opacity: '1',
+            boxShadow: '0 0 20px rgba(251, 191, 36, 0.3)',
+          },
+          '50%': {
+            opacity: '0.8',
+            boxShadow: '0 0 30px rgba(251, 191, 36, 0.5)',
+          },
+        },
+        
+        // Success pulse
+        'pulse-success': {
+          '0%, 100%': {
+            boxShadow: '0 0 20px rgba(39, 255, 151, 0.3)',
+          },
+          '50%': {
+            boxShadow: '0 0 30px rgba(39, 255, 151, 0.5)',
+          },
+        },
+        
+        // Shimmer for loading
+        'shimmer': {
+          '0%': {
+            backgroundPosition: '-1000px 0',
+          },
+          '100%': {
+            backgroundPosition: '1000px 0',
+          },
+        },
+        
+        // Slide in from top (timer)
+        'slide-in-top': {
+          '0%': {
+            transform: 'translateY(-100%)',
+            opacity: '0',
+          },
+          '100%': {
+            transform: 'translateY(0)',
+            opacity: '1',
+          },
+        },
+        
+        // Bounce alert
+        'bounce-alert': {
+          '0%, 100%': {
+            transform: 'translateY(0)',
+          },
+          '50%': {
+            transform: 'translateY(-4px)',
+          },
+        },
+        
+        // Spin code (for running)
+        'spin-code': {
+          '0%': {
+            transform: 'rotate(0deg)',
+          },
+          '100%': {
+            transform: 'rotate(360deg)',
+          },
+        },
+        
+        // Fade in with scale
+        'fade-in-scale': {
+          '0%': {
+            opacity: '0',
+            transform: 'scale(0.95)',
+          },
+          '100%': {
+            opacity: '1',
+            transform: 'scale(1)',
           },
         },
       },
+      
       animation: {
         'pulse-subtle': 'pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'glow': 'glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'glow-intense': 'glow 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        
+        // Violation indicators
+        'pulse-danger': 'pulse-danger 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'pulse-warning': 'pulse-warning 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'pulse-success': 'pulse-success 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        
+        // Loading and movement
+        'shimmer': 'shimmer 2s infinite',
+        'slide-in-top': 'slide-in-top 0.3s ease-out',
+        'bounce-alert': 'bounce-alert 0.5s ease-in-out 2',
+        'spin-code': 'spin-code 1s linear infinite',
+        'fade-in-scale': 'fade-in-scale 0.3s ease-out',
       },
       
-      // Transitions
+      // Transitions - Smooth and responsive
       transitionDuration: {
         'fast': '150ms',
         'normal': '200ms',
         'slow': '300ms',
+        'slower': '500ms',
       },
       
       transitionTimingFunction: {
         'smooth': 'cubic-bezier(0.4, 0, 0.2, 1)',
         'sharp': 'cubic-bezier(0.6, 0, 0.4, 1)',
+        'bounce': 'cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+      },
+      
+      // Gradients for premium look
+      backgroundImage: {
+        'gradient-gold': 'linear-gradient(135deg, #ffdca1 0%, #ffba20 100%)',
+        'gradient-green': 'linear-gradient(135deg, #27ff97 0%, #00e383 100%)',
+        'gradient-danger': 'linear-gradient(135deg, #ff7a5e 0%, #ff5842 100%)',
+        'gradient-cyber': 'linear-gradient(135deg, #131313 0%, #1c1b1b 100%)',
+        'gradient-premium': 'linear-gradient(135deg, rgba(255, 220, 161, 0.1) 0%, rgba(39, 255, 151, 0.05) 100%)',
+      },
+      
+      // Backdrop filters for glassmorphism
+      backdropBlur: {
+        'xs': '2px',
+        'sm': '4px',
+        'md': '12px',
+        'lg': '16px',
+        'xl': '24px',
       },
     },
   },

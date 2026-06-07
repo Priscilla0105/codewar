@@ -182,9 +182,10 @@ export class DBService {
   }
 
   public static async getMatchHistory(userId: string): Promise<MatchHistoryEntry[]> {
-    const matches = await MatchModel.find({
-      $or: [{ player1: userId }, { player2: userId }]
-    }).sort({ createdAt: -1 }).lean();
+    const matches = await MatchModel.find().or([
+  { player1: userId },
+  { player2: userId }
+]).sort({ createdAt: -1 }).lean();
 
     return matches.map((m: any) => {
       const isPlayer1 = m.player1 === userId;
