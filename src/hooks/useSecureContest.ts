@@ -1,15 +1,3 @@
-/**
- * useSecureContest Hook
- * Comprehensive anti-cheating system for secure coding contests
- *
- * Features:
- * - Fullscreen enforcement with exit detection
- * - Focus monitoring (tab switching, window blur)
- * - Dangerous shortcut blocking
- * - Violation tracking and logging
- * - Socket event emission for backend logging
- */
-
 import { useEffect, useRef, useCallback, useState } from 'react';
 
 export interface Violation {
@@ -28,9 +16,6 @@ interface UseSecureContestOptions {
   emitSocket?: (event: string, data: any) => void;
 }
 
-/**
- * BLOCKED KEYBOARD SHORTCUTS
- */
 const BLOCKED_SHORTCUTS = [
   { key: 'c', ctrl: true, shift: false, meta: false, name: 'Ctrl+C (Copy)' },
   { key: 'v', ctrl: true, shift: false, meta: false, name: 'Ctrl+V (Paste)' },
@@ -57,22 +42,15 @@ export function useSecureContest({
   const violationCountRef = useRef(0);
   const lastViolationTimeRef = useRef(0);
 
-  /**
-   * Generate unique violation ID
-   */
   const generateViolationId = useCallback(() => {
     return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }, []);
 
-  /**
-   * Log violation locally and emit to backend
-   */
   const logViolation = useCallback(
     (type: Violation['type'], details: string) => {
       if (!enabled || isFlagged) return;
 
       const now = Date.now();
-      // Debounce violations within 500ms
       if (now - lastViolationTimeRef.current < 500) return;
       lastViolationTimeRef.current = now;
 
@@ -86,7 +64,6 @@ export function useSecureContest({
       setViolations((prev) => [...prev, violation]);
       violationCountRef.current++;
 
-      // Emit to backend
       if (emitSocket) {
         emitSocket('contest:violation', {
           violationId: violation.id,
@@ -97,12 +74,10 @@ export function useSecureContest({
         });
       }
 
-      // Callback
       if (onViolation) {
         onViolation(violation);
       }
 
-      // Flag after max violations
       if (violationCountRef.current >= maxViolations) {
         setIsFlagged(true);
         if (onFlagParticipant) {
@@ -119,9 +94,7 @@ export function useSecureContest({
     [enabled, isFlagged, maxViolations, generateViolationId, onViolation, onFlagParticipant, emitSocket]
   );
 
-  /**
-   * FEATURE 1: Fullscreen Enforcement
-   */
+  // Fullscreen enforcement
   useEffect(() => {
     if (!enabled || !containerRef?.current) return;
 
@@ -138,9 +111,6 @@ export function useSecureContest({
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, [enabled, isFullscreen, logViolation, containerRef]);
 
-  /**
-   * Enter fullscreen programmatically
-   */
   const enterFullscreen = useCallback(async () => {
     if (!containerRef?.current) return;
     try {
@@ -153,9 +123,7 @@ export function useSecureContest({
     }
   }, [containerRef]);
 
-  /**
-   * FEATURE 2: Focus Monitoring (Tab Switch, Window Blur)
-   */
+  // Focus monitoring
   useEffect(() => {
     if (!enabled) return;
 
@@ -178,9 +146,7 @@ export function useSecureContest({
     };
   }, [enabled, logViolation]);
 
-  /**
-   * FEATURE 3: Keyboard Shortcut Blocking
-   */
+  // Keyboard shortcut blocking
   useEffect(() => {
     if (!enabled) return;
 
@@ -189,14 +155,12 @@ export function useSecureContest({
       const ctrlPressed = e.ctrlKey || e.metaKey;
       const shiftPressed = e.shiftKey;
 
-      // Check F12 separately
       if (key === 'F12') {
         e.preventDefault();
         logViolation('keyboard_shortcut', 'Attempted F12 (Dev Tools)');
         return;
       }
 
-      // Check other shortcuts
       for (const shortcut of BLOCKED_SHORTCUTS) {
         const isMatch =
           shortcut.key === key &&
@@ -215,9 +179,7 @@ export function useSecureContest({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [enabled, logViolation]);
 
-  /**
-   * FEATURE 4: Context Menu Blocking (Right Click)
-   */
+  // Context menu blocking
   useEffect(() => {
     if (!enabled) return;
 
@@ -230,17 +192,11 @@ export function useSecureContest({
     return () => document.removeEventListener('contextmenu', handleContextMenu);
   }, [enabled, logViolation]);
 
-  /**
-   * Clear violations (for admin/reset)
-   */
   const clearViolations = useCallback(() => {
     setViolations([]);
     violationCountRef.current = 0;
   }, []);
 
-  /**
-   * Reset flagged status (admin only)
-   */
   const resetFlag = useCallback(() => {
     setIsFlagged(false);
   }, []);

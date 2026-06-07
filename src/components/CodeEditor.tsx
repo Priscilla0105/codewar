@@ -1,38 +1,7 @@
-/**
- * CYBER ARENA - CODE EDITOR (ENHANCED)
- * Premium secure coding editor with Monaco integration
- *
- * Features:
- *   - Custom "Cyber Arena" theme with golden accents
- *   - Context menu and dangerous actions disabled
- *   - Auto-save with recovery system
- *   - Fullscreen editor mode
- *   - Execution statistics display
- *   - Syntax highlighting optimized for competitive programming
- *   - Code draft preservation across sessions
- */
-
-import React, {
-  useEffect,
-  useRef,
-  useState,
-  useCallback,
-  memo,
-} from "react";
+import React, { useEffect, useRef, useState, useCallback, memo } from "react";
 import Editor, { OnMount } from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
-import {
-  ChevronDown,
-  Copy,
-  Check,
-  RefreshCw,
-  Play,
-  Upload,
-  Maximize,
-  Minimize,
-  AlertCircle,
-  SaveIcon,
-} from "lucide-react";
+import { ChevronDown, Copy, Check, RefreshCw, Play, Upload, Maximize, Minimize, AlertCircle } from "lucide-react";
 
 interface CodeEditorProps {
   code: string;
@@ -44,11 +13,7 @@ interface CodeEditorProps {
   onSubmit: () => void;
   isRunning?: boolean;
   isSubmitting?: boolean;
-  executionStats?: {
-    runtime?: number;
-    memory?: number;
-    cpuUsage?: number;
-  };
+  executionStats?: { runtime?: number; memory?: number; cpuUsage?: number };
 }
 
 interface Language {
@@ -70,7 +35,7 @@ const getDefaultCode = (lang: string): string => {
     c: `#include <stdio.h>\n#include <stdlib.h>\n\nint main() {\n    \n    return 0;\n}`,
     java: `import java.util.*;\n\npublic class Solution {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        \n    }\n}`,
     python: `import sys\ninput = sys.stdin.readline\n\ndef solve():\n    pass\n\nsolve()`,
-    javascript: `process.stdin.resume();\nprocess.stdin.setEncoding('utf8');\n\nlet input = '';\nprocess.stdin.on('data', d => input += d);\nprocess.stdin.on('end', () => {\n    const lines = input.split('\\n');\n    // solve here\n});`,
+    javascript: `process.stdin.resume();\nprocess.stdin.setEncoding('utf8');\n\nlet input = '';\nprocess.stdin.on('data', d => input += d);\nprocess.stdin.on('end', () => {\n    const lines = input.split('\\n');\n});`,
   };
   return templates[lang] ?? "";
 };
@@ -78,9 +43,6 @@ const getDefaultCode = (lang: string): string => {
 const STORAGE_KEY = (lang: string) => `cw_code_${lang}`;
 const LAST_SAVED_KEY = (lang: string) => `cw_saved_${lang}`;
 
-/**
- * Define custom Cyber Arena theme for Monaco
- */
 const defineCyberArenaTheme = () => {
   if (typeof window !== "undefined" && (window as any).monaco) {
     const monaco = (window as any).monaco;
@@ -88,62 +50,37 @@ const defineCyberArenaTheme = () => {
       base: "vs-dark",
       inherit: true,
       rules: [
-        // Keywords - Premium Gold
-        { token: "keyword", foreground: "#ffdca1", fontStyle: "bold" },
-        { token: "keyword.control", foreground: "#ffba20" },
-
-        // Strings - Emerald Green
-        { token: "string", foreground: "#27ff97" },
-        { token: "string.escape", foreground: "#5bffa1" },
-
-        // Comments - Muted Bronze
-        { token: "comment", foreground: "#9e8f78", fontStyle: "italic" },
-
-        // Numbers - Cyan
-        { token: "number", foreground: "#5eb3f6" },
-
-        // Functions - Light Orange
-        { token: "entity.name.function", foreground: "#ffb366" },
-
-        // Types - Secondary Green
-        { token: "entity.name.type", foreground: "#27ff97" },
-        { token: "storage.type", foreground: "#ffdca1" },
-
-        // Variables - Soft White
-        { token: "variable", foreground: "#d5c4ab" },
-
-        // Operators - Gold
-        { token: "keyword.operator", foreground: "#ffdca1" },
-
-        // Brackets - Subtle
-        { token: "delimiter.bracket", foreground: "#9e8f78" },
-        { token: "delimiter.parenthesis", foreground: "#9e8f78" },
+        { token: "keyword", foreground: "#ffc700", fontStyle: "bold" },
+        { token: "keyword.control", foreground: "#ffd700" },
+        { token: "string", foreground: "#00cc44" },
+        { token: "string.escape", foreground: "#66ff99" },
+        { token: "comment", foreground: "#999999", fontStyle: "italic" },
+        { token: "number", foreground: "#66b3ff" },
+        { token: "entity.name.function", foreground: "#ffaa55" },
+        { token: "entity.name.type", foreground: "#00cc44" },
+        { token: "storage.type", foreground: "#ffc700" },
+        { token: "variable", foreground: "#e0e0e0" },
+        { token: "keyword.operator", foreground: "#ffc700" },
+        { token: "delimiter.bracket", foreground: "#999999" },
       ],
       colors: {
-        "editor.background": "#131313",
-        "editor.foreground": "#d5c4ab",
-        "editor.lineNumbersBackground": "#0e0e0e",
-        "editor.lineNumbersForeground": "#514532",
-        "editor.selectionBackground": "#ffdca1" + "40",
-        "editor.selectionHighlightBackground": "#27ff97" + "20",
-        "editor.wordHighlightBackground": "#ffdca1" + "20",
-        "editor.wordHighlightStrongBackground": "#ffba20" + "20",
-        "editorCursor.foreground": "#ffdca1",
-        "editorWhitespace.foreground": "#514532" + "80",
-        "editorBracketMatch.background": "#ffdca1" + "20",
-        "editorBracketMatch.border": "#ffdca1" + "60",
-        "editor.findMatchBackground": "#ffba20" + "40",
-        "editor.findMatchHighlightBackground": "#27ff97" + "30",
-        "editor.findRangeHighlightBackground": "#ffdca1" + "10",
+        "editor.background": "#0a0a0a",
+        "editor.foreground": "#e0e0e0",
+        "editor.lineNumbersBackground": "#000000",
+        "editor.lineNumbersForeground": "#555555",
+        "editor.selectionBackground": "#ffc700" + "40",
+        "editor.selectionHighlightBackground": "#00cc44" + "20",
+        "editorCursor.foreground": "#ffc700",
+        "editorWhitespace.foreground": "#555555" + "80",
+        "editorBracketMatch.background": "#ffc700" + "20",
+        "editorBracketMatch.border": "#ffc700" + "60",
+        "editor.findMatchBackground": "#ffd700" + "40",
+        "editor.findMatchHighlightBackground": "#00cc44" + "30",
       },
     });
   }
 };
 
-/**
- * Monaco-based code editor with enhanced features
- * Styled with premium Cyber Arena design system
- */
 export default memo(function CodeEditor({
   code,
   setCode,
@@ -165,20 +102,14 @@ export default memo(function CodeEditor({
   const [saveIndicator, setSaveIndicator] = useState<"idle" | "saving" | "error">("idle");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [unsavedChanges, setUnsavedChanges] = useState(false);
-  const [lastSaveTime, setLastSaveTime] = useState<Date | null>(null);
 
-  // Define theme on mount
   useEffect(() => {
     defineCyberArenaTheme();
   }, []);
 
-  // ── Close dropdown when clicking outside
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(e.target as Node)
-      ) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setShowDropdown(false);
       }
     };
@@ -188,35 +119,21 @@ export default memo(function CodeEditor({
     }
   }, [showDropdown]);
 
-  // ── Recover saved code from localStorage on mount
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY(language));
-      if (saved && !code) {
-        setCode(saved);
-        const savedTime = localStorage.getItem(LAST_SAVED_KEY(language));
-        if (savedTime) {
-          setLastSaveTime(new Date(savedTime));
-        }
-      }
-    } catch {
-      // Silently fail if localStorage is unavailable
-    }
+      if (saved && !code) setCode(saved);
+    } catch {}
   }, []);
 
-  // ── Auto-save every 3s
   useEffect(() => {
     if (!code) return;
-
-    // Track unsaved changes
     setUnsavedChanges(true);
-
     const id = setInterval(() => {
       try {
         localStorage.setItem(STORAGE_KEY(language), code);
         localStorage.setItem(LAST_SAVED_KEY(language), new Date().toISOString());
         setSaveIndicator("saving");
-        setLastSaveTime(new Date());
         setTimeout(() => setSaveIndicator("idle"), 600);
         setUnsavedChanges(false);
       } catch (err) {
@@ -224,28 +141,19 @@ export default memo(function CodeEditor({
         setTimeout(() => setSaveIndicator("idle"), 3000);
       }
     }, 3000);
-
     return () => clearInterval(id);
   }, [code, language]);
 
-  // ── When language changes, restore saved code or fall back to template
-  const handleLanguageChange = useCallback(
-    (lang: string) => {
-      setLanguage(lang);
-      setShowDropdown(false);
-      try {
-        const saved = localStorage.getItem(STORAGE_KEY(lang));
-        setCode(saved ?? getDefaultCode(lang));
-        const savedTime = localStorage.getItem(LAST_SAVED_KEY(lang));
-        if (savedTime) {
-          setLastSaveTime(new Date(savedTime));
-        }
-      } catch {
-        setCode(getDefaultCode(lang));
-      }
-    },
-    [setLanguage, setCode]
-  );
+  const handleLanguageChange = useCallback((lang: string) => {
+    setLanguage(lang);
+    setShowDropdown(false);
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY(lang));
+      setCode(saved ?? getDefaultCode(lang));
+    } catch {
+      setCode(getDefaultCode(lang));
+    }
+  }, [setLanguage, setCode]);
 
   const handleEditorMount: OnMount = useCallback((editorInstance) => {
     editorRef.current = editorInstance;
@@ -262,7 +170,6 @@ export default memo(function CodeEditor({
 
   const toggleFullscreen = useCallback(async () => {
     if (!containerRef.current) return;
-
     try {
       if (!isFullscreen) {
         if (containerRef.current.requestFullscreen) {
@@ -280,84 +187,47 @@ export default memo(function CodeEditor({
     }
   }, [isFullscreen]);
 
-  const clearCode = useCallback(() => {
-    if (confirm("Clear all code? This cannot be undone.")) {
-      setCode("");
-      try {
-        localStorage.removeItem(STORAGE_KEY(language));
-      } catch {
-        // Silent fail
-      }
-    }
-  }, [language, setCode]);
-
-  const resetToTemplate = useCallback(() => {
-    if (confirm("Reset to template?")) {
-      setCode(getDefaultCode(language));
-    }
-  }, [language, setCode]);
-
-  const currentLang =
-    SUPPORTED_LANGUAGES.find((l) => l.value === language) ??
-    SUPPORTED_LANGUAGES[0];
-
+  const currentLang = SUPPORTED_LANGUAGES.find((l) => l.value === language) ?? SUPPORTED_LANGUAGES[0];
   const busy = isRunning || isSubmitting;
 
   return (
     <div
       ref={containerRef}
-      className={`flex flex-col h-full bg-[#131313] overflow-hidden font-['Space_Grotesk'] ${
+      className={`flex flex-col h-full bg-[#0a0a0a] overflow-hidden font-['Space_Grotesk'] ${
         isFullscreen ? "fixed inset-0 z-50" : ""
       }`}
     >
-      {/* ── Header ────────────────────────────────────── */}
-      <div className="bg-[#1c1b1b] border-b border-white/5 px-3 py-2.5 flex items-center gap-2 shrink-0">
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold text-[#ffdca1] uppercase tracking-[0.08em]">
-            Editor
+      {/* Header */}
+      <div className="bg-[#1a1a1a] border-b border-[#999999]/20 px-3 py-2.5 flex items-center gap-2 shrink-0">
+        <span className="text-[10px] font-bold text-[#ffc700] uppercase tracking-[0.08em]">Editor</span>
+        {unsavedChanges && (
+          <span className="text-[9px] text-[#ffc700] flex items-center gap-1">
+            <AlertCircle className="w-3 h-3" />
+            Unsaved
           </span>
-          {unsavedChanges && (
-            <span className="text-[9px] text-amber-300 flex items-center gap-1">
-              <AlertCircle className="w-3 h-3" />
-              Unsaved
-            </span>
-          )}
-        </div>
+        )}
 
         {/* Language Picker */}
         <div className="relative ml-2" ref={dropdownRef}>
           <button
             onClick={() => !disabled && setShowDropdown((v) => !v)}
             disabled={disabled}
-            aria-haspopup="listbox"
-            aria-expanded={showDropdown}
-            aria-label="Select programming language"
-            className="flex items-center gap-1.5 px-2 py-1 text-[10px] bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#ffdca1]/30 rounded text-[#d5c4ab] disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-['Space_Grotesk']"
+            className="flex items-center gap-1.5 px-2 py-1 text-[10px] bg-[#242424] hover:bg-[#2e2e2e] border border-[#555555] hover:border-[#ffc700]/50 rounded text-[#ffffff] disabled:opacity-40 transition-colors"
           >
             {currentLang.label}
-            <ChevronDown
-              className={`w-3 h-3 transition-transform ${showDropdown ? "rotate-180" : ""}`}
-            />
+            <ChevronDown className={`w-3 h-3 transition-transform ${showDropdown ? "rotate-180" : ""}`} />
           </button>
 
           {showDropdown && (
-            <ul
-              role="listbox"
-              aria-label="Language options"
-              className="absolute top-full left-0 mt-1 bg-[#1c1b1b] border border-white/10 rounded shadow-2xl z-50 min-w-[130px] py-1 overflow-hidden"
-            >
+            <ul className="absolute top-full left-0 mt-1 bg-[#1a1a1a] border border-[#555555] rounded shadow-2xl z-50 min-w-[130px] py-1 overflow-hidden">
               {SUPPORTED_LANGUAGES.map((lang) => (
-                <li
-                  key={lang.value}
-                  role="option"
-                  aria-selected={language === lang.value}
-                >
+                <li key={lang.value}>
                   <button
                     onClick={() => handleLanguageChange(lang.value)}
-                    className={`w-full text-left px-3 py-1.5 text-[10px] transition-colors font-['Space_Grotesk'] ${
+                    className={`w-full text-left px-3 py-1.5 text-[10px] transition-colors ${
                       language === lang.value
-                        ? "bg-[#ffdca1]/15 text-[#ffdca1] font-semibold"
-                        : "text-[#d5c4ab] hover:bg-white/5"
+                        ? "bg-[#ffc700]/20 text-[#ffc700] font-semibold"
+                        : "text-[#cccccc] hover:bg-[#242424]"
                     }`}
                   >
                     {lang.label}
@@ -372,59 +242,36 @@ export default memo(function CodeEditor({
 
         {/* Action Buttons */}
         <div className="flex items-center gap-1">
-          {/* Copy Button */}
           <button
             onClick={handleCopy}
             disabled={disabled || !code}
-            aria-label="Copy code to clipboard"
-            title="Copy code"
-            className="p-1.5 text-[#9e8f78] hover:text-[#ffdca1] hover:bg-white/5 rounded disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="p-1.5 text-[#999999] hover:text-[#ffc700] hover:bg-[#242424] rounded disabled:opacity-40 transition-colors"
           >
-            {copied ? (
-              <Check className="w-3.5 h-3.5 text-emerald-400" />
-            ) : (
-              <Copy className="w-3.5 h-3.5" />
-            )}
+            {copied ? <Check className="w-3.5 h-3.5 text-[#00cc44]" /> : <Copy className="w-3.5 h-3.5" />}
           </button>
 
-          {/* Fullscreen Button */}
           <button
             onClick={toggleFullscreen}
             disabled={disabled}
-            aria-label="Toggle fullscreen"
-            title="Fullscreen"
-            className="p-1.5 text-[#9e8f78] hover:text-[#ffdca1] hover:bg-white/5 rounded disabled:opacity-40 transition-colors"
+            className="p-1.5 text-[#999999] hover:text-[#ffc700] hover:bg-[#242424] rounded disabled:opacity-40 transition-colors"
           >
-            {isFullscreen ? (
-              <Minimize className="w-3.5 h-3.5" />
-            ) : (
-              <Maximize className="w-3.5 h-3.5" />
-            )}
+            {isFullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />}
           </button>
 
-          {/* Save Indicator */}
-          <div className="flex items-center gap-1.5 px-2 py-1 bg-white/5 rounded border border-white/10">
+          <div className="flex items-center gap-1.5 px-2 py-1 bg-[#242424] rounded border border-[#555555]">
             <div
               className={`w-1.5 h-1.5 rounded-full transition-all ${
-                saveIndicator === "saving"
-                  ? "bg-[#ffdca1] animate-pulse"
-                  : saveIndicator === "error"
-                  ? "bg-red-500"
-                  : "bg-emerald-400"
+                saveIndicator === "saving" ? "bg-[#ffc700] animate-pulse" : saveIndicator === "error" ? "bg-[#ff6b6b]" : "bg-[#00cc44]"
               }`}
             />
-            <span className="text-[9px] text-[#9e8f78] whitespace-nowrap font-['Space_Grotesk']">
-              {saveIndicator === "saving"
-                ? "Saving…"
-                : saveIndicator === "error"
-                ? "Save failed"
-                : "Auto-saved"}
+            <span className="text-[9px] text-[#999999] whitespace-nowrap">
+              {saveIndicator === "saving" ? "Saving…" : saveIndicator === "error" ? "Save failed" : "Auto-saved"}
             </span>
           </div>
         </div>
       </div>
 
-      {/* ── Monaco Editor ──────────────────────────────── */}
+      {/* Editor */}
       <div className="flex-1 min-h-0">
         <Editor
           height="100%"
@@ -436,7 +283,7 @@ export default memo(function CodeEditor({
           options={{
             minimap: { enabled: false },
             fontSize: 13,
-            fontFamily: "'JetBrains Mono', 'Menlo', 'Fira Code', 'Courier New', monospace",
+            fontFamily: "'JetBrains Mono', monospace",
             fontLigatures: true,
             lineNumbers: "on",
             lineNumbersMinChars: 3,
@@ -445,7 +292,6 @@ export default memo(function CodeEditor({
             autoClosingQuotes: "always",
             autoIndent: "full",
             formatOnPaste: true,
-            formatOnType: false,
             wordWrap: "on",
             scrollBeyondLastLine: false,
             renderWhitespace: "selection",
@@ -453,87 +299,43 @@ export default memo(function CodeEditor({
             smoothScrolling: true,
             padding: { top: 14, bottom: 14 },
             quickSuggestions: { other: true, comments: false, strings: false },
-            suggestOnTriggerCharacters: true,
             tabSize: language === "python" ? 4 : 2,
             readOnly: disabled,
             contextmenu: false,
             lineHeight: 22,
             letterSpacing: 0.5,
-            // Security: Disable dangerous actions
-           
           }}
-          loading={
-            <div className="w-full h-full bg-[#131313] flex items-center justify-center">
-              <div className="flex items-center gap-2 text-[#9e8f78] text-sm font-['Space_Grotesk']">
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                Loading editor…
-              </div>
-            </div>
-          }
         />
       </div>
 
-      {/* ── Footer ────────────────────────────────────── */}
-      <div className="bg-[#1c1b1b] border-t border-white/5 px-3 py-2 flex items-center gap-2 shrink-0">
-        {/* Run Button */}
+      {/* Footer */}
+      <div className="bg-[#1a1a1a] border-t border-[#999999]/20 px-3 py-2 flex items-center gap-2 shrink-0">
         <button
           onClick={onRun}
-          disabled={disabled || busy}
-          aria-label="Run code against sample input"
-          className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold rounded transition-colors active:scale-[0.98] font-['Space_Grotesk']"
+          disabled={disabled || isRunning || isSubmitting}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0066cc] hover:bg-[#0052a3] disabled:opacity-50 text-white text-xs font-bold rounded transition-colors"
         >
-          {isRunning ? (
-            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-          ) : (
-            <Play className="w-3.5 h-3.5" />
-          )}
+          {isRunning ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
           {isRunning ? "Running…" : "Run"}
         </button>
 
-        {/* Submit Button */}
         <button
           onClick={onSubmit}
-          disabled={disabled || busy}
-          aria-label="Submit code for full judge evaluation"
-          className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold rounded transition-colors active:scale-[0.98] font-['Space_Grotesk']"
+          disabled={disabled || isRunning || isSubmitting}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#ffc700] hover:bg-[#ffd700] disabled:opacity-50 text-black text-xs font-bold rounded transition-colors"
         >
-          {isSubmitting ? (
-            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-          ) : (
-            <Upload className="w-3.5 h-3.5" />
-          )}
+          {isSubmitting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
           {isSubmitting ? "Submitting…" : "Submit"}
         </button>
 
-        {/* Stats Display */}
         {executionStats && (
-          <div className="flex items-center gap-2 ml-2 px-2 py-1 bg-white/5 rounded border border-white/10">
-            {executionStats.runtime && (
-              <span className="text-[9px] text-[#9e8f78]">
-                {executionStats.runtime}ms
-              </span>
-            )}
-            {executionStats.memory && (
-              <span className="text-[9px] text-[#9e8f78]">
-                {executionStats.memory}MB
-              </span>
-            )}
+          <div className="flex items-center gap-2 ml-2 px-2 py-1 bg-[#242424] rounded border border-[#555555]">
+            {executionStats.runtime && <span className="text-[9px] text-[#999999]">{executionStats.runtime}ms</span>}
+            {executionStats.memory && <span className="text-[9px] text-[#999999]">{executionStats.memory}MB</span>}
           </div>
         )}
 
         <div className="flex-1" />
-
-        {/* Save Info */}
-        <div className="flex items-center gap-1.5 text-[9px] text-[#9e8f78] font-['Space_Grotesk']">
-          {lastSaveTime && (
-            <span>
-              Last saved: {lastSaveTime.toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </span>
-          )}
-        </div>
       </div>
     </div>
   );
