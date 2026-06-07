@@ -46,46 +46,37 @@ const LAST_SAVED_KEY = (lang: string) => `cw_saved_${lang}`;
 const defineCyberArenaTheme = () => {
   if (typeof window !== "undefined" && (window as any).monaco) {
     const monaco = (window as any).monaco;
-    monaco.editor.defineTheme("cyber-arena", {
-      base: "vs-dark",
-      inherit: true,
-      rules: [
-        { token: "keyword", foreground: "#FFC107", fontStyle: "bold" },
-        { token: "keyword.control", foreground: "#FFD54F" },
-        { token: "string", foreground: "#FFD54F" },
-        { token: "string.escape", foreground: "#FFE082" },
-        { token: "comment", foreground: "#8A8A8A", fontStyle: "italic" },
-        { token: "number", foreground: "#F5F5F5" },
-        { token: "entity.name.function", foreground: "#ffaa55" },
-        { token: "entity.name.type", foreground: "#00cc44" },
-        { token: "storage.type", foreground: "#FFC107" },
-        { token: "variable", foreground: "#e0e0e0" },
-        { token: "keyword.operator", foreground: "#FFC107" },
-        { token: "delimiter.bracket", foreground: "#8A8A8A" },
-      ],
-      colors: {
-  "editor.background": "#050505",
-  "editor.foreground": "#F5F5F5",
+  monaco.editor.defineTheme("cyber-arena", {
+    base: "vs-dark",
+    inherit: true,
 
-  "editor.lineNumbersBackground": "#050505",
-  "editor.lineNumbersForeground": "#8A8A8A",
+    rules: [
+      { token: "keyword", foreground: "FFC107", fontStyle: "bold" },
+      { token: "keyword.control", foreground: "FFD54F" },
+      { token: "string", foreground: "00D26A" },
+      { token: "number", foreground: "66B3FF" },
+      { token: "comment", foreground: "8A8A8A", fontStyle: "italic" },
+      { token: "entity.name.function", foreground: "FFD54F" },
+      { token: "variable", foreground: "F5F5F5" },
+    ],
 
-  "editor.selectionBackground": "#FFC10740",
-  "editor.selectionHighlightBackground": "#FFD54F20",
+    colors: {
+      "editor.background": "#050505",
+      "editor.foreground": "#F5F5F5",
 
-  "editorCursor.foreground": "#FFC107",
+      "editor.lineNumbersBackground": "#050505",
+      "editor.lineNumbersForeground": "#8A8A8A",
 
-  "editorWhitespace.foreground": "#8A8A8A40",
+      "editorCursor.foreground": "#FFC107",
 
-  "editorBracketMatch.background": "#FFC10720",
-  "editorBracketMatch.border": "#FFC10760",
+      "editor.selectionBackground": "#FFC10740",
+      "editor.selectionHighlightBackground": "#FFD54F20",
 
-  "editor.findMatchBackground": "#FFC10740",
-  "editor.findMatchHighlightBackground": "#FFD54F30",
-},
-    });
-  }
-};
+      "editorBracketMatch.background": "#FFC10720",
+      "editorBracketMatch.border": "#FFC10760",
+    },
+  });
+}}
 
 export default memo(function CodeEditor({
   code,
