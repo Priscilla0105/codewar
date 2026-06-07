@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback, memo } from "react";
 import Editor, { OnMount } from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
-import { ChevronDown, Copy, Check, RefreshCw, Play, Upload, Maximize, Minimize, AlertCircle } from "lucide-react";
+import { ChevronDown, Copy, Check, RefreshCw, Play, Upload, AlertCircle } from "lucide-react";
 
 interface CodeEditorProps {
   code: string;
@@ -100,7 +100,6 @@ export default memo(function CodeEditor({
   const [copied, setCopied] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [saveIndicator, setSaveIndicator] = useState<"idle" | "saving" | "error">("idle");
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [unsavedChanges, setUnsavedChanges] = useState(false);
 
   useEffect(() => {
@@ -168,34 +167,13 @@ export default memo(function CodeEditor({
     });
   }, [code]);
 
-  const toggleFullscreen = useCallback(async () => {
-    if (!containerRef.current) return;
-    try {
-      if (!isFullscreen) {
-        if (containerRef.current.requestFullscreen) {
-          await containerRef.current.requestFullscreen();
-          setIsFullscreen(true);
-        }
-      } else {
-        if (document.fullscreenElement) {
-          await document.exitFullscreen();
-          setIsFullscreen(false);
-        }
-      }
-    } catch (err) {
-      console.error("Fullscreen toggle failed:", err);
-    }
-  }, [isFullscreen]);
-
   const currentLang = SUPPORTED_LANGUAGES.find((l) => l.value === language) ?? SUPPORTED_LANGUAGES[0];
   const busy = isRunning || isSubmitting;
 
   return (
     <div
       ref={containerRef}
-      className={`flex flex-col h-full bg-[#0a0a0a] overflow-hidden font-['Space_Grotesk'] ${
-        isFullscreen ? "fixed inset-0 z-50" : ""
-      }`}
+      className="flex flex-col h-full bg-[#0a0a0a] overflow-hidden font-['Space_Grotesk']"
     >
       {/* Header */}
       <div className="bg-[#1a1a1a] border-b border-[#999999]/20 px-3 py-2.5 flex items-center gap-2 shrink-0">
@@ -248,14 +226,6 @@ export default memo(function CodeEditor({
             className="p-1.5 text-[#999999] hover:text-[#ffc700] hover:bg-[#242424] rounded disabled:opacity-40 transition-colors"
           >
             {copied ? <Check className="w-3.5 h-3.5 text-[#00cc44]" /> : <Copy className="w-3.5 h-3.5" />}
-          </button>
-
-          <button
-            onClick={toggleFullscreen}
-            disabled={disabled}
-            className="p-1.5 text-[#999999] hover:text-[#ffc700] hover:bg-[#242424] rounded disabled:opacity-40 transition-colors"
-          >
-            {isFullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />}
           </button>
 
           <div className="flex items-center gap-1.5 px-2 py-1 bg-[#242424] rounded border border-[#555555]">

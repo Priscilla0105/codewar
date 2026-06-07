@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, memo } from "react";
 import Editor from "@monaco-editor/react";
 import {
   Trophy, CheckCircle2, XCircle, AlertTriangle, Send, Copy, Check, Play, Upload, RefreshCw,
-  ChevronDown, Zap, MessageSquare, Code2, Clock, X, AlertCircle, Shield, Eye, Maximize2,
+  ChevronDown, Zap, MessageSquare, Code2, Clock, X, AlertCircle, Shield, Eye,
 } from "lucide-react";
 import { getSocket } from "../lib/socket";
 import { User, Problem } from "../types";
@@ -155,6 +155,16 @@ export default memo(function BattleArena({
 
   const currentLang = LANGUAGES.find((l) => l.value === language) ?? LANGUAGES[0];
 
+  // Auto-fullscreen when battle starts
+  useEffect(() => {
+    if (!isPractice && !isFlagged && containerRef.current) {
+      const timer = setTimeout(() => {
+        enterFullscreen();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isPractice, isFlagged, enterFullscreen]);
+
   const handleLanguageChange = useCallback((lang: string) => {
     setLanguage(lang);
     setShowDropdown(false);
@@ -240,16 +250,6 @@ export default memo(function BattleArena({
               <AlertTriangle className="w-3.5 h-3.5 text-[#ffc700]" />
               <span className="text-[10px] font-bold text-[#ffc700]">{violationCount}/3</span>
             </div>
-          )}
-
-          {!isFullscreen && !isPractice && (
-            <button
-              onClick={enterFullscreen}
-              title="Enter fullscreen"
-              className="p-1.5 text-[#999999] hover:text-[#ffc700] hover:bg-[#242424] rounded transition-colors"
-            >
-              <Maximize2 className="w-3.5 h-3.5" />
-            </button>
           )}
 
           <button
