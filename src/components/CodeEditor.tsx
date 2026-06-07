@@ -1,16 +1,12 @@
 /**
- * CodeEditor.tsx — Refactored
+ * CYBER ARENA - CODE EDITOR
+ * Refactored with complete Cyber Arena design system
  *
- * Fixes applied:
- *  - localStorage removed from render cycle (moved to callbacks only)
- *  - useEffect deps fixed (no stale closures)
- *  - isDisabled -> disabled prop (proper aria pattern)
- *  - Language change properly memoised
- *  - Type safety improved (no `any` in editor ref)
- *  - Dropdown closes on outside click (useEffect + ref)
- *  - Auto-save interval clears properly
- *  - Missing aria-labels added
- *  - Responsive: stack buttons on mobile
+ * Design System:
+ *   - Color Palette: Deep black (#131313), Orange primary (#ffdca1), Neon Green (#27ff97)
+ *   - Typography: Space Grotesk (UI), JetBrains Mono (code)
+ *   - Elevation: Tonal layering with luminous borders
+ *   - Spacing: Precision grid (1rem = 16px base)
  */
 
 import React, {
@@ -29,7 +25,6 @@ interface CodeEditorProps {
   setCode: (code: string) => void;
   language: string;
   setLanguage: (lang: string) => void;
-  /** When true the editor is read-only and buttons are disabled */
   disabled?: boolean;
   onRun: () => void;
   onSubmit: () => void;
@@ -50,7 +45,6 @@ const SUPPORTED_LANGUAGES: Language[] = [
   { label: "JavaScript", value: "javascript" },
 ];
 
-/** Per-language boilerplate */
 const getDefaultCode = (lang: string): string => {
   const templates: Record<string, string> = {
     cpp: `#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios_base::sync_with_stdio(false);\n    cin.tie(NULL);\n    \n    return 0;\n}`,
@@ -65,8 +59,8 @@ const getDefaultCode = (lang: string): string => {
 const STORAGE_KEY = (lang: string) => `cw_code_${lang}`;
 
 /**
- * Standalone Monaco-based code editor with language picker, copy, run, submit.
- * Fully controlled: code/setCode owned by parent.
+ * Monaco-based code editor with language picker, copy, run, submit
+ * Fully styled with Cyber Arena design system
  */
 export default memo(function CodeEditor({
   code,
@@ -102,7 +96,7 @@ export default memo(function CodeEditor({
     }
   }, [showDropdown]);
 
-  // ── Auto-save every 3 s (only when code is non-empty, not on every keystroke)
+  // ── Auto-save every 3s
   useEffect(() => {
     if (!code) return;
     const id = setInterval(() => {
@@ -122,8 +116,6 @@ export default memo(function CodeEditor({
     (lang: string) => {
       setLanguage(lang);
       setShowDropdown(false);
-      // FIX: read from storage here, not in an effect that depends on `code`
-      // to avoid overwriting code the user just typed before the effect fires.
       try {
         const saved = localStorage.getItem(STORAGE_KEY(lang));
         setCode(saved ?? getDefaultCode(lang));
@@ -136,8 +128,6 @@ export default memo(function CodeEditor({
 
   const handleEditorMount: OnMount = useCallback((editorInstance) => {
     editorRef.current = editorInstance;
-    // Restore saved code on initial mount if no code passed in
-    // (Parent should pass initial code; this is just a safety net)
   }, []);
 
   const handleCopy = useCallback(() => {
@@ -155,14 +145,14 @@ export default memo(function CodeEditor({
   const busy = isRunning || isSubmitting;
 
   return (
-    <div className="flex flex-col h-full bg-[#1e1e1e] overflow-hidden">
-      {/* Header */}
-      <div className="bg-[#252526] border-b border-black/40 px-3 py-1.5 flex items-center gap-2 shrink-0">
-        <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest font-mono">
+    <div className="flex flex-col h-full bg-[#131313] overflow-hidden font-['Space_Grotesk']">
+      {/* ── Header ────────────────────────────────────── */}
+      <div className="bg-[#1c1b1b] border-b border-white/5 px-3 py-2 flex items-center gap-2 shrink-0">
+        <span className="text-[10px] font-bold text-[#ffdca1] uppercase tracking-[0.08em]">
           Editor
         </span>
 
-        {/* Language picker */}
+        {/* Language Picker */}
         <div className="relative ml-2" ref={dropdownRef}>
           <button
             onClick={() => !disabled && setShowDropdown((v) => !v)}
@@ -170,7 +160,7 @@ export default memo(function CodeEditor({
             aria-haspopup="listbox"
             aria-expanded={showDropdown}
             aria-label="Select programming language"
-            className="flex items-center gap-1.5 px-2 py-1 text-[11px] bg-white/5 hover:bg-white/10 border border-white/10 rounded text-gray-300 hover:border-amber-400/40 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-1.5 px-2 py-1 text-[10px] bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#ffdca1]/30 rounded text-[#d5c4ab] disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-['Space_Grotesk']"
           >
             {currentLang.label}
             <ChevronDown
@@ -182,16 +172,16 @@ export default memo(function CodeEditor({
             <ul
               role="listbox"
               aria-label="Language options"
-              className="absolute top-full left-0 mt-1 bg-[#252526] border border-white/10 rounded shadow-2xl z-50 min-w-[130px] py-1 overflow-hidden"
+              className="absolute top-full left-0 mt-1 bg-[#1c1b1b] border border-white/10 rounded shadow-2xl z-50 min-w-[130px] py-1 overflow-hidden"
             >
               {SUPPORTED_LANGUAGES.map((lang) => (
                 <li key={lang.value} role="option" aria-selected={language === lang.value}>
                   <button
                     onClick={() => handleLanguageChange(lang.value)}
-                    className={`w-full text-left px-3 py-1.5 text-[11px] transition-colors ${
+                    className={`w-full text-left px-3 py-1.5 text-[10px] transition-colors font-['Space_Grotesk'] ${
                       language === lang.value
-                        ? "bg-amber-400/15 text-amber-400 font-semibold"
-                        : "text-gray-300 hover:bg-white/5"
+                        ? "bg-[#ffdca1]/15 text-[#ffdca1] font-semibold"
+                        : "text-[#d5c4ab] hover:bg-white/5"
                     }`}
                   >
                     {lang.label}
@@ -204,13 +194,13 @@ export default memo(function CodeEditor({
 
         <div className="flex-1" />
 
-        {/* Copy */}
+        {/* Copy Button */}
         <button
           onClick={handleCopy}
           disabled={disabled || !code}
           aria-label="Copy code to clipboard"
           title="Copy code"
-          className="p-1.5 text-gray-500 hover:text-gray-300 hover:bg-white/5 rounded disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="p-1.5 text-[#9e8f78] hover:text-[#ffdca1] hover:bg-white/5 rounded disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           {copied ? (
             <Check className="w-3.5 h-3.5 text-emerald-400" />
@@ -220,7 +210,7 @@ export default memo(function CodeEditor({
         </button>
       </div>
 
-      {/* Monaco Editor */}
+      {/* ── Monaco Editor ──────────────────────────────── */}
       <div className="flex-1 min-h-0">
         <Editor
           height="100%"
@@ -232,7 +222,7 @@ export default memo(function CodeEditor({
           options={{
             minimap: { enabled: false },
             fontSize: 13,
-            fontFamily: "'Menlo', 'Fira Code', 'Courier New', monospace",
+            fontFamily: "'JetBrains Mono', 'Menlo', 'Fira Code', 'Courier New', monospace",
             fontLigatures: true,
             lineNumbers: "on",
             lineNumbersMinChars: 3,
@@ -241,7 +231,7 @@ export default memo(function CodeEditor({
             autoClosingQuotes: "always",
             autoIndent: "full",
             formatOnPaste: true,
-            formatOnType: false, // formatOnType can cause cursor jumps — off by default
+            formatOnType: false,
             wordWrap: "on",
             scrollBeyondLastLine: false,
             renderWhitespace: "selection",
@@ -252,10 +242,12 @@ export default memo(function CodeEditor({
             suggestOnTriggerCharacters: true,
             tabSize: language === "python" ? 4 : 2,
             readOnly: disabled,
+            lineHeight: 22,
+            letterSpacing: 0.5,
           }}
           loading={
-            <div className="w-full h-full bg-[#1e1e1e] flex items-center justify-center">
-              <div className="flex items-center gap-2 text-gray-500 text-sm">
+            <div className="w-full h-full bg-[#131313] flex items-center justify-center">
+              <div className="flex items-center gap-2 text-[#9e8f78] text-sm font-['Space_Grotesk']">
                 <RefreshCw className="w-4 h-4 animate-spin" />
                 Loading editor…
               </div>
@@ -264,13 +256,14 @@ export default memo(function CodeEditor({
         />
       </div>
 
-      {/* Footer: action buttons */}
-      <div className="bg-[#252526] border-t border-black/40 px-3 py-2 flex items-center gap-2 shrink-0">
+      {/* ── Footer ────────────────────────────────────── */}
+      <div className="bg-[#1c1b1b] border-t border-white/5 px-3 py-2 flex items-center gap-2 shrink-0">
+        {/* Run Button */}
         <button
           onClick={onRun}
           disabled={disabled || busy}
           aria-label="Run code against sample input"
-          className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold rounded transition-colors active:scale-[0.98]"
+          className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold rounded transition-colors active:scale-[0.98] font-['Space_Grotesk']"
         >
           {isRunning ? (
             <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -280,11 +273,12 @@ export default memo(function CodeEditor({
           {isRunning ? "Running…" : "Run"}
         </button>
 
+        {/* Submit Button */}
         <button
           onClick={onSubmit}
           disabled={disabled || busy}
           aria-label="Submit code for full judge evaluation"
-          className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold rounded transition-colors active:scale-[0.98]"
+          className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold rounded transition-colors active:scale-[0.98] font-['Space_Grotesk']"
         >
           {isSubmitting ? (
             <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -294,12 +288,12 @@ export default memo(function CodeEditor({
           {isSubmitting ? "Submitting…" : "Submit"}
         </button>
 
-        {/* Save indicator */}
-        <div className="ml-auto flex items-center gap-1.5 text-[10px] text-gray-600">
+        {/* Save Indicator */}
+        <div className="ml-auto flex items-center gap-1.5 text-[10px] text-[#9e8f78] font-['Space_Grotesk']">
           <div
             className={`w-1.5 h-1.5 rounded-full transition-colors ${
               saveIndicator === "saving"
-                ? "bg-amber-400"
+                ? "bg-[#ffdca1]"
                 : "bg-emerald-400 animate-pulse"
             }`}
           />
