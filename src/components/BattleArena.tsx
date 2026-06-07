@@ -198,10 +198,12 @@ const ProblemPanel = memo(({ problem }: { problem: Problem }) => (
           Constraints
         </p>
         <div className="bg-white/[0.03] border border-white/10 rounded px-3 py-2 text-xs text-gray-300 space-y-0.5">
-          {problem.constraints.map((c: string, i: number) => (
-  <p key={i} className="font-mono">
-    {c}
-  </p>
+          {problem.constraints
+  .filter(Boolean)
+  .map((c: string, i: number) => (
+    <p key={i} className="font-mono">
+      {c}
+    </p>
 ))}
         </div>
       </div>
