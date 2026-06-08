@@ -17,6 +17,8 @@ import {
   Bot,
   GripVertical,
   GripHorizontal,
+  Lightbulb,
+  Sparkles,
 } from "lucide-react";
 import { getSocket } from "../lib/socket";
 import { User, Problem, ChatMessage, ExecutionResult } from "../types";
@@ -37,6 +39,7 @@ interface BattleProps {
 }
 
 type TerminalTab = "output" | "tests" | "debug";
+type RightTab = "hints" | "suggestions" | "chat";
 
 interface BattleSummary {
   winnerName: string;
@@ -120,6 +123,18 @@ function useVerticalResize(initial: number, min: number, max: number) {
   return { size, setSize, startResize };
 }
 
+const VIOLATION_LABELS: Record<string, string> = {
+  fullscreen_exit: "Fullscreen Exit",
+  tab_switch: "Tab Switch",
+  focus_loss: "Window Blur",
+  copy_attempt: "Copy Attempt",
+  paste_attempt: "Paste Attempt",
+  cut_attempt: "Cut Attempt",
+  select_all_attempt: "Select All Attempt",
+  context_menu: "Context Menu",
+  keyboard_shortcut: "Blocked Shortcut",
+};
+
 // ─── Sub-components ──────────────────────────────────────────
 
 const ViolationWarningModal = memo(
@@ -144,8 +159,11 @@ const ViolationWarningModal = memo(
             <AlertCircle className={`w-5 h-5 mt-0.5 shrink-0 ${isCritical ? "text-[#FF6B6B]" : "text-[#FFC107]"}`} />
             <div className="flex-1">
               <h3 className="font-bold text-sm text-white mb-1">
-                {isCritical ? "Critical Violation" : "Contest Violation Detected"}
+                {isCritical ? "Critical Violation — Final Warning" : "Contest Violation Detected"}
               </h3>
+              <p className="text-[10px] text-[#FFC107] font-semibold uppercase tracking-wider mb-1">
+                {VIOLATION_LABELS[violation.type] ?? violation.type}
+              </p>
               <p className="text-xs text-[#C8C8C8] mb-3 leading-relaxed">{violation.details}</p>
               <div className="flex items-center gap-2 mb-3">
                 <div className="flex-1 h-1.5 bg-black/50 rounded-full overflow-hidden">
@@ -179,12 +197,30 @@ const FlaggedBanner = memo(({ flagReason }: { flagReason?: string }) => (
   <div className="absolute inset-0 z-[200] bg-[#FF6B6B]/15 backdrop-blur-sm flex items-center justify-center pointer-events-none">
     <div className="bg-[#1A0A0A] border-2 border-[#FF4444] rounded-lg p-8 text-center max-w-md shadow-2xl">
       <AlertTriangle className="w-10 h-10 text-[#FF6B6B] mx-auto mb-4" />
-      <h2 className="text-lg font-bold text-white mb-2">Submission Flagged</h2>
-      <p className="text-sm text-[#E8E8E8] mb-3">{flagReason || "Your submission has been flagged for contest violations."}</p>
-      <p className="text-xs text-[#8A8A8A]">This incident has been logged and reported to administrators.</p>
+      <h2 className="text-lg font-bold text-white mb-2">Contest Disqualified</h2>
+      <p className="text-sm text-[#E8E8E8] mb-3">{flagReason || "Maximum contest warnings exceeded. You have been disqualified."}</p>
+      <p className="text-xs text-[#8A8A8A]">Your code was auto-submitted. This incident has been logged.</p>
     </div>
   </div>
 ));
+
+const WarningsCounter = memo(({ count, max }: { count: number; max: number }) => {
+  const critical = count >= max - 1 && count > 0;
+  return (
+    <div
+      className={`flex items-center gap-1.5 px-3 py-1 rounded-md border text-[11px] font-bold tracking-wide ${
+        critical
+          ? "border-[#FF4444] bg-[#2A1010] text-[#FF6B6B] animate-pulse"
+          : count > 0
+            ? "border-[#CC3333]/70 bg-[#1E1410] text-[#FFCC00]"
+            : "border-[#2A2A2A] bg-[#111] text-[#6A6A6A]"
+      }`}
+    >
+      <Shield className="w-3 h-3 shrink-0" />
+      <span className="font-serif tabular-nums">Warnings: {count} / {max}</span>
+    </div>
+  );
+});
 
 const DifficultyBadge = memo(({ difficulty }: { difficulty: string }) => {
   const d = difficulty?.toLowerCase() ?? "medium";
@@ -200,25 +236,19 @@ const DifficultyBadge = memo(({ difficulty }: { difficulty: string }) => {
   );
 });
 
-const PremiumSolvedBadge = memo(({ solved, total }: { solved: number; total: number }) => (
-  <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-[#141414] border border-[#2E2E2E] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-    <span className="text-[13px] text-[#9A9A9A] font-serif tracking-wide">Solved:</span>
-    <span className="text-[14px] font-bold text-[#4EC9B0] font-serif tabular-nums">{solved}/{total}</span>
+const PremiumSolvedBadge = memo(({ solved }: { solved: number }) => (
+  <div className="badge-solved">
+    <span className="badge-solved-label">Solved:</span>
+    <span className="badge-solved-value">{solved}</span>
   </div>
 ));
 
 const PremiumWarningBadge = memo(({ count, max }: { count: number; max: number }) => {
-  const critical = count >= max - 1;
+  const critical = count >= max - 1 && count > 0;
   return (
-    <div
-      className={`flex items-center gap-2 px-3 py-1.5 rounded-md border shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] ${
-        critical
-          ? "bg-[#2A1010] border-[#FF4444] animate-pulse"
-          : "bg-[#1E1410] border-[#CC3333]/70"
-      }`}
-    >
-      <AlertTriangle className={`w-4 h-4 shrink-0 ${critical ? "text-[#FFCC00]" : "text-[#FFCC00]"}`} />
-      <span className="text-[14px] font-bold text-[#FFCC00] font-serif tabular-nums">{count}/{max}</span>
+    <div className={`badge-warning${critical ? " critical" : ""}`}>
+      <AlertTriangle className="w-4 h-4 shrink-0 text-[#FFCC00]" />
+      <span className="badge-warning-count">{count}/{max}</span>
     </div>
   );
 });
@@ -233,6 +263,10 @@ const VIOLATION_TYPE_MAP: Record<string, string> = {
   focus_loss: "tab-switch",
   keyboard_shortcut: "devtools",
   context_menu: "paste-detect",
+  copy_attempt: "paste-detect",
+  paste_attempt: "paste-detect",
+  cut_attempt: "paste-detect",
+  select_all_attempt: "paste-detect",
 };
 
 export default memo(function BattleArena({
@@ -249,6 +283,9 @@ export default memo(function BattleArena({
   const chatEndRef = useRef<HTMLDivElement>(null);
   const battleSummaryRef = useRef<BattleSummary | null>(null);
   const codeSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const codeRef = useRef("");
+  const languageRef = useRef("javascript");
+  const disqualifyHandlerRef = useRef<(reason: string) => void>(() => {});
 
   const [code, setCode] = useState(() => problem?.starterCode?.javascript ?? getDefaultCode("javascript"));
   const [language, setLanguage] = useState("javascript");
@@ -265,7 +302,15 @@ export default memo(function BattleArena({
   const [chatInput, setChatInput] = useState("");
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
   const [leftTab, setLeftTab] = useState<"problem" | "submissions">("problem");
+  const [rightTab, setRightTab] = useState<RightTab>("hints");
   const [serverViolationCount, setServerViolationCount] = useState(0);
+  const [hints, setHints] = useState<string[]>([]);
+  const [isRequestingHint, setIsRequestingHint] = useState(false);
+  const [disqualifyReason, setDisqualifyReason] = useState<string | null>(null);
+  const [isDisqualified, setIsDisqualified] = useState(false);
+
+  codeRef.current = code;
+  languageRef.current = language;
 
   const leftPanel = usePanelResize(340, 260, 520);
   const rightPanel = usePanelResize(300, 220, 440);
@@ -276,19 +321,17 @@ export default memo(function BattleArena({
     setDebugLogs((prev) => [...prev.slice(-80), line]);
   }, []);
 
-  const { violationCount, isFlagged, enterFullscreen } = useSecureContest({
+  const { violationCount, violationStats, isFlagged, enterFullscreen } = useSecureContest({
     enabled: !isPractice,
     maxViolations: 3,
     containerRef,
     onViolation: (violation) => {
       setLastViolation(violation);
       setShowViolationModal(true);
-      appendDebug(`Violation: ${violation.type} — ${violation.details}`);
+      const label = VIOLATION_LABELS[violation.type] ?? violation.type;
+      appendDebug(`[ANTI-CHEAT] ${label}: ${violation.details}`);
     },
-    onFlagParticipant: () => {
-      setBattleFinished(true);
-      appendDebug("Participant flagged — max violations reached");
-    },
+    onDisqualify: (reason) => disqualifyHandlerRef.current(reason),
     emitSocket: (event, data) => {
       const socket = getSocket();
       if (!socket) return;
@@ -297,6 +340,13 @@ export default memo(function BattleArena({
           roomId,
           type: VIOLATION_TYPE_MAP[data.type as string] ?? "devtools",
           details: data.details,
+        });
+      }
+      if (event === "contest:flagged") {
+        socket.emit("anti-cheat-alert", {
+          roomId,
+          type: "fullscreen-exit",
+          details: data.reason ?? "Contest disqualified — max warnings exceeded",
         });
       }
     },
@@ -342,6 +392,10 @@ export default memo(function BattleArena({
 
     const onChatMessage = (msg: ChatMessage) => {
       setChatMessages((prev) => [...prev, msg]);
+      if (msg.isAi) {
+        setHints((prev) => [...prev.slice(-4), msg.message]);
+        setIsRequestingHint(false);
+      }
     };
 
     const onCheatingWarning = ({ warnings, details }: { warnings: number; details: string }) => {
@@ -351,7 +405,11 @@ export default memo(function BattleArena({
 
     const onDisqualification = ({ username, details }: { username: string; details: string }) => {
       appendDebug(`Disqualification: ${username} — ${details}`);
-      if (username === user.username) setBattleFinished(true);
+      if (username === user.username) {
+        setIsDisqualified(true);
+        setDisqualifyReason(details);
+        setBattleFinished(true);
+      }
     };
 
     const onBattleTimeout = ({ details }: { details: string }) => {
@@ -450,6 +508,36 @@ export default memo(function BattleArena({
     if (!res.ok) throw new Error(data.error || "Request failed");
     return data;
   }, []);
+
+  const performAutoSubmitOnDisqualify = useCallback(async () => {
+    if (!codeRef.current?.trim()) {
+      appendDebug("[ANTI-CHEAT] No code to auto-submit on disqualification");
+      return;
+    }
+    try {
+      appendDebug("[ANTI-CHEAT] Auto-submitting code due to disqualification…");
+      await apiCall("/api/compiler/submit", {
+        problemId: problem.id,
+        language: languageRef.current,
+        code: codeRef.current,
+        wpm: 0,
+        accuracy: 100,
+      });
+      const socket = getSocket();
+      socket.emit("code-final-submit", { roomId, wpm: 0, accuracy: 100 });
+      appendDebug("[ANTI-CHEAT] Code auto-submitted on disqualification");
+    } catch (err: any) {
+      appendDebug(`[ANTI-CHEAT] Auto-submit failed: ${err.message}`);
+    }
+  }, [apiCall, problem.id, roomId, appendDebug]);
+
+  disqualifyHandlerRef.current = (reason: string) => {
+    setDisqualifyReason(reason);
+    setIsDisqualified(true);
+    setBattleFinished(true);
+    appendDebug(`[ANTI-CHEAT] Contest Disqualified — ${reason}`);
+    void performAutoSubmitOnDisqualify();
+  };
 
   const handleRunCode = useCallback(async () => {
     setIsRunning(true);
@@ -555,6 +643,23 @@ export default memo(function BattleArena({
     setChatInput("");
   }, [chatInput, roomId, user.username, battleFinished]);
 
+  const handleRequestHint = useCallback(() => {
+    if (battleFinished || isRequestingHint) return;
+    setIsRequestingHint(true);
+    setRightTab("hints");
+    const socket = getSocket();
+    socket.emit("chat-message", {
+      roomId,
+      message: "Can you give me a hint for this problem?",
+      senderName: user.username,
+    });
+    appendDebug("Requested hint from Easy Bot");
+    setTimeout(() => setIsRequestingHint(false), 8000);
+  }, [battleFinished, isRequestingHint, roomId, user.username, appendDebug]);
+
+  const aiSuggestions = chatMessages.filter((m) => m.isAi);
+  const botName = isPractice ? "Friendly AI Coach" : isAiGame ? "Easy Bot" : "System";
+
   const handleExit = useCallback(() => {
     if (battleSummaryRef.current && onGameEnd) {
       const summary = battleSummaryRef.current;
@@ -576,11 +681,10 @@ export default memo(function BattleArena({
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-full flex flex-col bg-[#050505] overflow-hidden select-none"
-      style={{ fontFamily: "'Segoe UI', system-ui, sans-serif" }}
+      className="battle-arena relative w-full h-full flex flex-col overflow-hidden select-none"
     >
-      {/* ── Top bar ───────────────────────────────────────── */}
-      <header className="h-11 bg-[#0A0A0A] border-b border-[#1E1E1E] flex items-center px-4 gap-4 shrink-0 shadow-[0_2px_8px_rgba(0,0,0,0.4)]">
+      {/* ── VS Code title bar ─────────────────────────────── */}
+      <header className="vscode-titlebar flex items-center px-4 gap-4 shrink-0">
         <div className="flex items-center gap-2.5">
           <Swords className="w-4 h-4 text-[#FFC107]" />
           <span className="text-[11px] font-bold text-[#FFC107] uppercase tracking-[0.14em]">CodeWar</span>
@@ -595,9 +699,7 @@ export default memo(function BattleArena({
             timerUrgent ? "border-[#FF4444]/60 bg-[#1A0A0A]" : "border-[#2A2A2A] bg-[#111]"
           }`}>
             <Clock className={`w-3.5 h-3.5 ${timerUrgent ? "text-[#FF6B6B]" : "text-[#FFC107]"}`} />
-            <span className={`text-sm font-bold font-mono tabular-nums ${
-              timerUrgent ? "text-[#FF6B6B]" : "text-[#E8E8E8]"
-            }`}>
+            <span className={`battle-timer ${timerUrgent ? "urgent text-[#FF6B6B]" : "text-[#E8E8E8]"}`}>
               {isPractice ? "∞" : formatTime(timeLeft)}
             </span>
           </div>
@@ -624,7 +726,11 @@ export default memo(function BattleArena({
             </div>
           )}
 
-          <PremiumSolvedBadge solved={solvedCount} total={players.length} />
+          <PremiumSolvedBadge solved={solvedCount} />
+
+          {!isPractice && (
+            <WarningsCounter count={displayViolationCount} max={3} />
+          )}
 
           {!isPractice && displayViolationCount > 0 && (
             <PremiumWarningBadge count={displayViolationCount} max={3} />
@@ -643,22 +749,22 @@ export default memo(function BattleArena({
           onDismiss={() => setShowViolationModal(false)}
         />
       )}
-      {isFlagged && <FlaggedBanner flagReason="Multiple contest violations detected" />}
+      {(isFlagged || isDisqualified) && (
+        <FlaggedBanner flagReason={disqualifyReason ?? "Maximum contest warnings (3/3) exceeded."} />
+      )}
 
       {/* ── Main layout ───────────────────────────────────── */}
       <div className="flex-1 flex overflow-hidden min-h-0">
         {/* LEFT — Problem panel */}
         <aside
           style={{ width: leftPanel.size }}
-          className="shrink-0 flex flex-col bg-[#080808] border-r border-[#1A1A1A] overflow-hidden"
+          className="vscode-panel shrink-0 flex flex-col border-r overflow-hidden"
         >
-          <div className="flex border-b border-[#1A1A1A] shrink-0">
+          <div className="flex border-b border-[#1A1A1A] shrink-0 bg-[#0A0A0A]">
             <button
               onClick={() => setLeftTab("problem")}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[10px] font-bold uppercase tracking-wider transition-colors ${
-                leftTab === "problem"
-                  ? "text-[#FFC107] border-b-2 border-[#FFC107] bg-[#111]"
-                  : "text-[#6A6A6A] hover:text-[#AAA]"
+              className={`vscode-tab flex-1 flex items-center justify-center gap-1.5 py-2.5 ${
+                leftTab === "problem" ? "active bg-[#111]" : ""
               }`}
             >
               <FileText className="w-3.5 h-3.5" />
@@ -666,10 +772,8 @@ export default memo(function BattleArena({
             </button>
             <button
               onClick={() => setLeftTab("submissions")}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[10px] font-bold uppercase tracking-wider transition-colors ${
-                leftTab === "submissions"
-                  ? "text-[#FFC107] border-b-2 border-[#FFC107] bg-[#111]"
-                  : "text-[#6A6A6A] hover:text-[#AAA]"
+              className={`vscode-tab flex-1 flex items-center justify-center gap-1.5 py-2.5 ${
+                leftTab === "submissions" ? "active bg-[#111]" : ""
               }`}
             >
               <Clock className="w-3.5 h-3.5" />
@@ -706,21 +810,21 @@ export default memo(function BattleArena({
 
                 {problem?.inputFormat && (
                   <section className="space-y-2">
-                    <h3 className="text-[10px] font-bold text-[#FFC107] uppercase tracking-[0.12em]">Input Format</h3>
+                    <h3 className="cw-section-title">Input Format</h3>
                     <p className="text-xs text-[#A0A0A0] leading-relaxed whitespace-pre-wrap">{problem.inputFormat}</p>
                   </section>
                 )}
 
                 {problem?.outputFormat && (
                   <section className="space-y-2">
-                    <h3 className="text-[10px] font-bold text-[#FFC107] uppercase tracking-[0.12em]">Output Format</h3>
+                    <h3 className="cw-section-title">Output Format</h3>
                     <p className="text-xs text-[#A0A0A0] leading-relaxed whitespace-pre-wrap">{problem.outputFormat}</p>
                   </section>
                 )}
 
                 {problem?.constraints?.length > 0 && (
                   <section className="space-y-2">
-                    <h3 className="text-[10px] font-bold text-[#FFC107] uppercase tracking-[0.12em]">Constraints</h3>
+                    <h3 className="cw-section-title">Constraints</h3>
                     <ul className="space-y-1">
                       {problem.constraints.map((c: string, i: number) => (
                         <li key={i} className="text-xs text-[#A0A0A0] font-mono leading-relaxed">
@@ -733,20 +837,20 @@ export default memo(function BattleArena({
 
                 {(problem?.visibleTestCases?.length > 0 || problem?.sampleInput) && (
                   <section className="space-y-3">
-                    <h3 className="text-[10px] font-bold text-[#FFC107] uppercase tracking-[0.12em]">Examples</h3>
+                    <h3 className="cw-section-title">Examples</h3>
                     {problem.visibleTestCases?.length > 0
                       ? problem.visibleTestCases.map((tc, i) => (
                           <div key={i} className="space-y-2">
                             <p className="text-[10px] text-[#6A6A6A] font-semibold">Example {i + 1}</p>
                             <div>
                               <p className="text-[9px] text-[#555] uppercase mb-1">Input</p>
-                              <pre className="bg-[#0A0A0A] border border-[#222] rounded px-3 py-2 text-xs text-[#4EC9B0] font-mono overflow-x-auto">
+                              <pre className="cw-code-block px-3 py-2 text-[#4EC9B0] overflow-x-auto">
                                 {tc.input}
                               </pre>
                             </div>
                             <div>
                               <p className="text-[9px] text-[#555] uppercase mb-1">Output</p>
-                              <pre className="bg-[#0A0A0A] border border-[#222] rounded px-3 py-2 text-xs text-[#66B3FF] font-mono overflow-x-auto">
+                              <pre className="cw-code-block px-3 py-2 text-[#66B3FF] overflow-x-auto">
                                 {tc.expectedOutput}
                               </pre>
                             </div>
@@ -757,7 +861,7 @@ export default memo(function BattleArena({
                           {problem.sampleInput && (
                             <div>
                               <p className="text-[9px] text-[#555] uppercase mb-1">Sample Input</p>
-                              <pre className="bg-[#0A0A0A] border border-[#222] rounded px-3 py-2 text-xs text-[#4EC9B0] font-mono overflow-x-auto">
+                              <pre className="cw-code-block px-3 py-2 text-[#4EC9B0] overflow-x-auto">
                                 {problem.sampleInput}
                               </pre>
                             </div>
@@ -765,7 +869,7 @@ export default memo(function BattleArena({
                           {problem.sampleOutput && (
                             <div>
                               <p className="text-[9px] text-[#555] uppercase mb-1">Sample Output</p>
-                              <pre className="bg-[#0A0A0A] border border-[#222] rounded px-3 py-2 text-xs text-[#66B3FF] font-mono overflow-x-auto">
+                              <pre className="cw-code-block px-3 py-2 text-[#66B3FF] overflow-x-auto">
                                 {problem.sampleOutput}
                               </pre>
                             </div>
@@ -808,7 +912,7 @@ export default memo(function BattleArena({
 
         {/* Left resize handle */}
         <div
-          className="w-1 shrink-0 bg-[#141414] hover:bg-[#FFC107]/40 cursor-col-resize flex items-center justify-center group transition-colors"
+          className="resize-handle-col shrink-0 flex items-center justify-center group"
           onMouseDown={(e) => leftPanel.startResize(e, 1)}
         >
           <GripVertical className="w-3 h-3 text-[#333] group-hover:text-[#FFC107]/60 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -823,7 +927,7 @@ export default memo(function BattleArena({
               language={language}
               setLanguage={setLanguage}
               onLanguageChange={onEditorLanguageChange}
-              disabled={battleFinished || isFlagged}
+              disabled={battleFinished || isFlagged || isDisqualified}
               onRun={handleRunCode}
               onSubmit={handleSubmitCode}
               isRunning={isRunning}
@@ -838,7 +942,7 @@ export default memo(function BattleArena({
 
           {/* Terminal resize handle */}
           <div
-            className="h-1 shrink-0 bg-[#141414] hover:bg-[#FFC107]/40 cursor-row-resize flex items-center justify-center group transition-colors"
+            className="resize-handle-row shrink-0 flex items-center justify-center group"
             onMouseDown={bottomPanel.startResize}
           >
             <GripHorizontal className="w-3 h-3 text-[#333] group-hover:text-[#FFC107]/60 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -847,21 +951,17 @@ export default memo(function BattleArena({
           {/* BOTTOM — Terminal */}
           <div
             style={{ height: bottomPanel.size }}
-            className="shrink-0 flex flex-col bg-[#080808] border-t border-[#1A1A1A] overflow-hidden"
+            className="terminal-panel shrink-0 flex flex-col overflow-hidden"
           >
-            <div className="flex items-center border-b border-[#1A1A1A] shrink-0">
-              <Terminal className="w-3.5 h-3.5 text-[#FFC107] ml-3" />
-              <span className="text-[10px] font-bold text-[#FFC107] uppercase tracking-wider ml-2 py-2">Terminal Output</span>
+            <div className="vscode-panel-header flex items-center shrink-0">
+              <Terminal className="w-3.5 h-3.5 ml-3" />
+              <span className="ml-2 py-2">Terminal Output</span>
               <div className="flex ml-4 gap-0">
                 {(["output", "tests", "debug"] as TerminalTab[]).map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setTerminalTab(tab)}
-                    className={`px-3 py-2 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
-                      terminalTab === tab
-                        ? "text-[#FFC107] border-b-2 border-[#FFC107]"
-                        : "text-[#555] hover:text-[#888]"
-                    }`}
+                    className={`vscode-tab px-3 py-2 ${terminalTab === tab ? "active" : ""}`}
                   >
                     {tab === "output" ? "Output" : tab === "tests" ? "Test Results" : "Debug"}
                   </button>
@@ -877,7 +977,7 @@ export default memo(function BattleArena({
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-4 py-3 font-mono text-xs">
+            <div className="terminal-panel-body flex-1 overflow-y-auto px-4 py-3">
               {terminalTab === "output" && (
                 <>
                   {isRunning || isSubmitting ? (
@@ -941,7 +1041,19 @@ export default memo(function BattleArena({
               )}
 
               {terminalTab === "debug" && (
-                <div className="space-y-0.5">
+                <div className="space-y-2">
+                  {!isPractice && (
+                    <div className="p-2 border border-[#222] rounded bg-[#0A0A0A] mb-2 text-[10px] text-[#666] space-y-0.5">
+                      <p className="text-[#FFC107] font-bold">{"> [ANTI-CHEAT] Violation Tracker"}</p>
+                      <p>{`Fullscreen exits: ${violationStats.fullscreenExits}`}</p>
+                      <p>{`Tab switches: ${violationStats.tabSwitches}`}</p>
+                      <p>{`Window blur: ${violationStats.focusLoss}`}</p>
+                      <p>{`Copy attempts: ${violationStats.copyAttempts}`}</p>
+                      <p>{`Paste attempts: ${violationStats.pasteAttempts}`}</p>
+                      <p>{`Cut attempts: ${violationStats.cutAttempts}`}</p>
+                      <p className="text-[#FFCC00]">{`Warnings: ${displayViolationCount} / 3`}</p>
+                    </div>
+                  )}
                   {debugLogs.length === 0 ? (
                     <p className="text-[#444]">{"> [DEBUG] Session logs will appear here…"}</p>
                   ) : (
@@ -957,89 +1069,180 @@ export default memo(function BattleArena({
 
         {/* Right resize handle */}
         <div
-          className="w-1 shrink-0 bg-[#141414] hover:bg-[#FFC107]/40 cursor-col-resize flex items-center justify-center group transition-colors"
+          className="resize-handle-col shrink-0 flex items-center justify-center group"
           onMouseDown={(e) => rightPanel.startResize(e, -1)}
         >
           <GripVertical className="w-3 h-3 text-[#333] group-hover:text-[#FFC107]/60 opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
 
-        {/* RIGHT — Chat / AI */}
+        {/* RIGHT — Easy Bot sidebar */}
         <aside
           style={{ width: rightPanel.size }}
-          className="shrink-0 flex flex-col bg-[#080808] border-l border-[#1A1A1A] overflow-hidden"
+          className="bot-sidebar shrink-0 flex flex-col overflow-hidden"
         >
-          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[#1A1A1A] shrink-0">
-            <MessageSquare className="w-3.5 h-3.5 text-[#FFC107]" />
-            <span className="text-[10px] font-bold text-[#FFC107] uppercase tracking-wider">Battle Chat</span>
+          <div className="vscode-panel-header flex items-center gap-2 px-4 py-2.5 shrink-0">
+            <Bot className="w-3.5 h-3.5" />
+            <span>Easy Bot</span>
             {isAiGame && (
-              <span className="ml-auto flex items-center gap-1 text-[9px] text-[#4EC9B0]">
-                <Bot className="w-3 h-3" />
-                AI Active
+              <span className="ml-auto flex items-center gap-1 text-[9px] text-[#4EC9B0] normal-case tracking-normal font-normal">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#4EC9B0] animate-pulse" />
+                Online
               </span>
             )}
           </div>
 
+          <div className="flex border-b border-[#1A1A1A] shrink-0 bg-[#0A0A0A]">
+            {([
+              { id: "hints" as RightTab, label: "Hints", icon: Lightbulb },
+              { id: "suggestions" as RightTab, label: "Tips", icon: Sparkles },
+              { id: "chat" as RightTab, label: "Chat", icon: MessageSquare },
+            ]).map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => setRightTab(id)}
+                className={`vscode-tab flex-1 flex items-center justify-center gap-1 py-2 ${rightTab === id ? "active" : ""}`}
+              >
+                <Icon className="w-3 h-3" />
+                {label}
+              </button>
+            ))}
+          </div>
+
           <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
-            {chatMessages.length === 0 && (
-              <div className="p-3 rounded border border-[#1E1E1E] bg-[#0A0A0A]">
-                <p className="text-[10px] text-[#FFC107] font-bold mb-1 flex items-center gap-1">
-                  <Zap className="w-3 h-3" />
-                  {isAiGame ? (isPractice ? "Friendly AI Coach" : "AI Opponent") : "System"}
-                </p>
-                <p className="text-[11px] text-[#6A6A6A] leading-relaxed">
-                  {isAiGame
-                    ? "Ask for hints or strategy tips. The AI will respond during the battle."
-                    : "Chat with your opponent. Stay focused — tab switches are monitored."}
-                </p>
-              </div>
+            {rightTab === "hints" && (
+              <>
+                <div className="bot-card p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 rounded-full bg-[#FFC107]/15 border border-[#FFC107]/30 flex items-center justify-center">
+                      <Bot className="w-4 h-4 text-[#FFC107]" />
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-bold text-[#E8E8E8]">{botName}</p>
+                      <p className="text-[9px] text-[#555]">Hint Assistant</p>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-[#6A6A6A] leading-relaxed mb-3">
+                    {isAiGame
+                      ? "Stuck? Request a hint — the bot analyzes your problem and code context."
+                      : "Hints are available in AI battles. Chat with your opponent in the Chat tab."}
+                  </p>
+                  <button
+                    onClick={handleRequestHint}
+                    disabled={battleFinished || isRequestingHint || !isAiGame}
+                    className="bot-hint-btn w-full py-2 rounded flex items-center justify-center gap-1.5 disabled:opacity-40"
+                  >
+                    {isRequestingHint ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Lightbulb className="w-3.5 h-3.5" />
+                    )}
+                    {isRequestingHint ? "Thinking…" : "Get Hint"}
+                  </button>
+                </div>
+
+                {hints.length === 0 && !isRequestingHint && (
+                  <p className="text-[11px] text-[#444] text-center py-4">No hints yet. Click &quot;Get Hint&quot; to start.</p>
+                )}
+
+                {hints.map((hint, i) => (
+                  <div key={i} className="bot-card p-3 border-[#FFC107]/20">
+                    <p className="text-[9px] font-bold text-[#FFC107] uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                      <Lightbulb className="w-3 h-3" />
+                      Hint {i + 1}
+                    </p>
+                    <p className="text-[11px] text-[#C8C8C8] leading-relaxed whitespace-pre-wrap">{hint}</p>
+                  </div>
+                ))}
+              </>
             )}
 
-            {chatMessages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`p-2.5 rounded border text-[11px] leading-relaxed ${
-                  msg.isAi
-                    ? "border-[#FFC107]/20 bg-[#FFC107]/5"
-                    : msg.senderId === user.id
-                      ? "border-[#2A2A2A] bg-[#111] ml-4"
-                      : "border-[#1E1E1E] bg-[#0A0A0A] mr-4"
-                }`}
-              >
-                <p className={`text-[9px] font-bold mb-1 uppercase tracking-wider ${
-                  msg.isAi ? "text-[#FFC107]" : "text-[#6A6A6A]"
-                }`}>
-                  {msg.senderName}
-                </p>
-                <p className="text-[#C8C8C8] whitespace-pre-wrap">{msg.message}</p>
-              </div>
-            ))}
-            <div ref={chatEndRef} />
+            {rightTab === "suggestions" && (
+              <>
+                {aiSuggestions.length === 0 ? (
+                  <div className="bot-card p-3 text-center">
+                    <Sparkles className="w-6 h-6 text-[#FFC107]/40 mx-auto mb-2" />
+                    <p className="text-[11px] text-[#555]">AI suggestions appear here during the battle.</p>
+                  </div>
+                ) : (
+                  aiSuggestions.map((msg) => (
+                    <div key={msg.id} className="bot-card p-3 border-[#FFC107]/15">
+                      <p className="text-[9px] font-bold text-[#FFC107] uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                        <Sparkles className="w-3 h-3" />
+                        {msg.senderName}
+                      </p>
+                      <p className="text-[11px] text-[#C8C8C8] leading-relaxed whitespace-pre-wrap">{msg.message}</p>
+                    </div>
+                  ))
+                )}
+              </>
+            )}
+
+            {rightTab === "chat" && (
+              <>
+                {chatMessages.length === 0 && (
+                  <div className="bot-card p-3">
+                    <p className="text-[10px] text-[#FFC107] font-bold mb-1 flex items-center gap-1">
+                      <Zap className="w-3 h-3" />
+                      Battle Chat
+                    </p>
+                    <p className="text-[11px] text-[#6A6A6A] leading-relaxed">
+                      {isAiGame
+                        ? "Message the bot or discuss strategy. Tab switches are monitored."
+                        : "Chat with your opponent. Stay focused — violations are logged."}
+                    </p>
+                  </div>
+                )}
+
+                {chatMessages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={`p-2.5 rounded border text-[11px] leading-relaxed ${
+                      msg.isAi
+                        ? "border-[#FFC107]/20 bg-[#FFC107]/5"
+                        : msg.senderId === user.id
+                          ? "border-[#2A2A2A] bg-[#111] ml-3"
+                          : "border-[#1E1E1E] bg-[#0A0A0A] mr-3"
+                    }`}
+                  >
+                    <p className={`text-[9px] font-bold mb-1 uppercase tracking-wider ${
+                      msg.isAi ? "text-[#FFC107]" : "text-[#6A6A6A]"
+                    }`}>
+                      {msg.senderName}
+                    </p>
+                    <p className="text-[#C8C8C8] whitespace-pre-wrap">{msg.message}</p>
+                  </div>
+                ))}
+                <div ref={chatEndRef} />
+              </>
+            )}
           </div>
 
-          <div className="shrink-0 p-3 border-t border-[#1A1A1A]">
-            <div className="flex gap-2">
-              <input
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSendChat()}
-                disabled={battleFinished}
-                placeholder="Send message…"
-                className="flex-1 bg-[#0A0A0A] border border-[#2A2A2A] rounded px-3 py-2 text-xs text-[#E8E8E8] placeholder-[#444] focus:border-[#FFC107]/40 outline-none transition-colors"
-              />
-              <button
-                onClick={handleSendChat}
-                disabled={battleFinished || !chatInput.trim()}
-                className="p-2 bg-[#141414] hover:bg-[#1C1C1C] border border-[#2A2A2A] hover:border-[#FFC107]/40 rounded text-[#FFC107] disabled:opacity-40 transition-colors"
-              >
-                <Send className="w-4 h-4" />
-              </button>
+          {rightTab === "chat" && (
+            <div className="shrink-0 p-3 border-t border-[#1A1A1A]">
+              <div className="flex gap-2">
+                <input
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSendChat()}
+                  disabled={battleFinished}
+                  placeholder="Send message…"
+                  className="flex-1 bg-[#0A0A0A] border border-[#2A2A2A] rounded px-3 py-2 text-xs text-[#E8E8E8] placeholder-[#444] focus:border-[#FFC107]/40 outline-none transition-colors"
+                />
+                <button
+                  onClick={handleSendChat}
+                  disabled={battleFinished || !chatInput.trim()}
+                  className="p-2 bg-[#141414] hover:bg-[#1C1C1C] border border-[#2A2A2A] hover:border-[#FFC107]/40 rounded text-[#FFC107] disabled:opacity-40 transition-colors"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </aside>
       </div>
 
       {/* ── Status bar ────────────────────────────────────── */}
-      <footer className="h-7 bg-[#0A0A0A] border-t border-[#1A1A1A] flex items-center px-4 text-[10px] shrink-0">
+      <footer className="vscode-statusbar flex items-center px-4 shrink-0">
         <span className="text-[#FFC107] font-bold uppercase tracking-wider">CodeWar Arena</span>
         <span className="mx-2 text-[#333]">•</span>
         <span className="text-[#6A6A6A]">{SUPPORTED_LANGUAGES.find((l) => l.value === language)?.label}</span>
@@ -1053,7 +1256,9 @@ export default memo(function BattleArena({
             <span className="text-[#444]">|</span>
           )}
           {!isPractice && (
-            <span>Warnings: {displayViolationCount}/3</span>
+            <span className={`font-serif tabular-nums ${displayViolationCount >= 2 ? "text-[#FFCC00]" : ""}`}>
+              Warnings: {displayViolationCount} / 3
+            </span>
           )}
         </div>
       </footer>
@@ -1065,7 +1270,7 @@ export default memo(function BattleArena({
             <div className="bg-gradient-to-r from-[#FFC107] to-[#FFD54F] px-6 py-4 flex items-center gap-3">
               <Trophy className="w-6 h-6 text-black" />
               <h2 className="text-sm font-bold text-black uppercase tracking-wider">
-                {isFlagged ? "Submission Flagged" : "Battle Concluded"}
+                {isFlagged || isDisqualified ? "Contest Disqualified" : "Battle Concluded"}
               </h2>
             </div>
 
@@ -1095,10 +1300,10 @@ export default memo(function BattleArena({
               ))}
             </div>
 
-            {isFlagged && (
+            {(isFlagged || isDisqualified) && (
               <div className="mx-4 mb-4 p-3 bg-[#FF6B6B]/10 border border-[#FF6B6B]/30 rounded text-xs text-[#FF6B6B]">
-                <p className="font-semibold mb-1">Violations Detected</p>
-                <p>Your submission has been flagged for contest violations.</p>
+                <p className="font-semibold mb-1">Contest Disqualified</p>
+                <p>{disqualifyReason ?? "Maximum warnings (3/3) exceeded. Your code was auto-submitted."}</p>
               </div>
             )}
 

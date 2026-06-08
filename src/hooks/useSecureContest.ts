@@ -5,18 +5,44 @@
  * Features:
  * - Fullscreen enforcement with exit detection
  * - Focus monitoring (tab switching, window blur)
+ * - Copy/paste/cut shortcut and clipboard blocking
  * - Dangerous shortcut blocking
  * - Violation tracking and logging
  * - Socket event emission for backend logging
+ * - Auto-disqualification after max warnings
  */
 
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
+
+export type ViolationType =
+  | 'fullscreen_exit'
+  | 'focus_loss'
+  | 'tab_switch'
+  | 'keyboard_shortcut'
+  | 'context_menu'
+  | 'copy_attempt'
+  | 'paste_attempt'
+  | 'cut_attempt'
+  | 'select_all_attempt';
 
 export interface Violation {
   id: string;
-  type: 'fullscreen_exit' | 'focus_loss' | 'tab_switch' | 'keyboard_shortcut' | 'context_menu';
+  type: ViolationType;
   timestamp: number;
   details: string;
+}
+
+export interface ViolationStats {
+  fullscreenExits: number;
+  tabSwitches: number;
+  focusLoss: number;
+  copyAttempts: number;
+  pasteAttempts: number;
+  cutAttempts: number;
+  selectAllAttempts: number;
+  contextMenu: number;
+  other: number;
+  total: number;
 }
 
 interface UseSecureContestOptions {
@@ -24,24 +50,79 @@ interface UseSecureContestOptions {
   maxViolations?: number;
   containerRef?: React.RefObject<HTMLDivElement | null>;
   onViolation?: (violation: Violation) => void;
-  onFlagParticipant?: () => void;
+  onFlagParticipant?: (reason: string) => void;
+  onDisqualify?: (reason: string) => void;
   emitSocket?: (event: string, data: any) => void;
 }
 
-/**
- * BLOCKED KEYBOARD SHORTCUTS
- */
-const BLOCKED_SHORTCUTS = [
-  { key: 'c', ctrl: true, shift: false, meta: false, name: 'Ctrl+C (Copy)' },
-  { key: 'v', ctrl: true, shift: false, meta: false, name: 'Ctrl+V (Paste)' },
-  { key: 'x', ctrl: true, shift: false, meta: false, name: 'Ctrl+X (Cut)' },
-  { key: 'a', ctrl: true, shift: false, meta: false, name: 'Ctrl+A (Select All)' },
-  { key: 'u', ctrl: true, shift: false, meta: false, name: 'Ctrl+U (View Source)' },
-  { key: 'i', ctrl: true, shift: true, meta: false, name: 'Ctrl+Shift+I (Dev Tools)' },
-  { key: 'j', ctrl: true, shift: true, meta: false, name: 'Ctrl+Shift+J (Console)' },
-  { key: 'c', ctrl: true, shift: true, meta: false, name: 'Ctrl+Shift+C (Inspect)' },
-  { key: 'F12', ctrl: false, shift: false, meta: false, name: 'F12 (Dev Tools)' },
+interface BlockedShortcut {
+  key: string;
+  ctrl: boolean;
+  shift: boolean;
+  meta: boolean;
+  name: string;
+  violationType: ViolationType;
+}
+
+const BLOCKED_SHORTCUTS: BlockedShortcut[] = [
+  { key: 'C', ctrl: true, shift: false, meta: false, name: 'Ctrl+C (Copy)', violationType: 'copy_attempt' },
+  { key: 'V', ctrl: true, shift: false, meta: false, name: 'Ctrl+V (Paste)', violationType: 'paste_attempt' },
+  { key: 'X', ctrl: true, shift: false, meta: false, name: 'Ctrl+X (Cut)', violationType: 'cut_attempt' },
+  { key: 'A', ctrl: true, shift: false, meta: false, name: 'Ctrl+A (Select All)', violationType: 'select_all_attempt' },
+  { key: 'U', ctrl: true, shift: false, meta: false, name: 'Ctrl+U (View Source)', violationType: 'keyboard_shortcut' },
+  { key: 'I', ctrl: true, shift: true, meta: false, name: 'Ctrl+Shift+I (Dev Tools)', violationType: 'keyboard_shortcut' },
+  { key: 'J', ctrl: true, shift: true, meta: false, name: 'Ctrl+Shift+J (Console)', violationType: 'keyboard_shortcut' },
+  { key: 'C', ctrl: true, shift: true, meta: false, name: 'Ctrl+Shift+C (Inspect)', violationType: 'keyboard_shortcut' },
+  { key: 'F12', ctrl: false, shift: false, meta: false, name: 'F12 (Dev Tools)', violationType: 'keyboard_shortcut' },
 ];
+
+function computeViolationStats(violations: Violation[]): ViolationStats {
+  const stats: ViolationStats = {
+    fullscreenExits: 0,
+    tabSwitches: 0,
+    focusLoss: 0,
+    copyAttempts: 0,
+    pasteAttempts: 0,
+    cutAttempts: 0,
+    selectAllAttempts: 0,
+    contextMenu: 0,
+    other: 0,
+    total: violations.length,
+  };
+
+  for (const v of violations) {
+    switch (v.type) {
+      case 'fullscreen_exit':
+        stats.fullscreenExits++;
+        break;
+      case 'tab_switch':
+        stats.tabSwitches++;
+        break;
+      case 'focus_loss':
+        stats.focusLoss++;
+        break;
+      case 'copy_attempt':
+        stats.copyAttempts++;
+        break;
+      case 'paste_attempt':
+        stats.pasteAttempts++;
+        break;
+      case 'cut_attempt':
+        stats.cutAttempts++;
+        break;
+      case 'select_all_attempt':
+        stats.selectAllAttempts++;
+        break;
+      case 'context_menu':
+        stats.contextMenu++;
+        break;
+      default:
+        stats.other++;
+    }
+  }
+
+  return stats;
+}
 
 export function useSecureContest({
   enabled = true,
@@ -49,6 +130,7 @@ export function useSecureContest({
   containerRef,
   onViolation,
   onFlagParticipant,
+  onDisqualify,
   emitSocket,
 }: UseSecureContestOptions) {
   const [violations, setViolations] = useState<Violation[]>([]);
@@ -56,23 +138,42 @@ export function useSecureContest({
   const [isFlagged, setIsFlagged] = useState(false);
   const violationCountRef = useRef(0);
   const lastViolationTimeRef = useRef(0);
+  const wasFullscreenRef = useRef(false);
+  const isFlaggedRef = useRef(false);
 
-  /**
-   * Generate unique violation ID
-   */
+  const violationStats = useMemo(() => computeViolationStats(violations), [violations]);
+
   const generateViolationId = useCallback(() => {
     return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }, []);
 
-  /**
-   * Log violation locally and emit to backend
-   */
+  const disqualifyParticipant = useCallback(
+    (reason: string) => {
+      if (isFlaggedRef.current) return;
+      isFlaggedRef.current = true;
+      setIsFlagged(true);
+
+      if (onDisqualify) {
+        onDisqualify(reason);
+      } else if (onFlagParticipant) {
+        onFlagParticipant(reason);
+      }
+      if (emitSocket) {
+        emitSocket('contest:flagged', {
+          reason,
+          violationCount: violationCountRef.current,
+          disqualified: true,
+        });
+      }
+    },
+    [onFlagParticipant, onDisqualify, emitSocket]
+  );
+
   const logViolation = useCallback(
-    (type: Violation['type'], details: string) => {
-      if (!enabled || isFlagged) return;
+    (type: ViolationType, details: string) => {
+      if (!enabled || isFlaggedRef.current) return;
 
       const now = Date.now();
-      // Debounce violations within 500ms
       if (now - lastViolationTimeRef.current < 500) return;
       lastViolationTimeRef.current = now;
 
@@ -86,7 +187,6 @@ export function useSecureContest({
       setViolations((prev) => [...prev, violation]);
       violationCountRef.current++;
 
-      // Emit to backend
       if (emitSocket) {
         emitSocket('contest:violation', {
           violationId: violation.id,
@@ -97,55 +197,46 @@ export function useSecureContest({
         });
       }
 
-      // Callback
       if (onViolation) {
         onViolation(violation);
       }
 
-      // Flag after max violations
       if (violationCountRef.current >= maxViolations) {
-        setIsFlagged(true);
-        if (onFlagParticipant) {
-          onFlagParticipant();
-        }
-        if (emitSocket) {
-          emitSocket('contest:flagged', {
-            reason: `Maximum violations (${maxViolations}) exceeded`,
-            violationCount: violationCountRef.current,
-          });
-        }
+        disqualifyParticipant(
+          `Contest Disqualified — maximum warnings (${maxViolations}) exceeded`
+        );
       }
     },
-    [enabled, isFlagged, maxViolations, generateViolationId, onViolation, onFlagParticipant, emitSocket]
+    [enabled, maxViolations, generateViolationId, onViolation, emitSocket, disqualifyParticipant]
   );
 
-  /**
-   * FEATURE 1: Fullscreen Enforcement
-   */
+  /** Fullscreen enforcement */
   useEffect(() => {
     if (!enabled || !containerRef?.current) return;
 
     const handleFullscreenChange = () => {
-      const isCurrentlyFullscreen = document.fullscreenElement !== null;
-      setIsFullscreen(isCurrentlyFullscreen);
+      const isCurrentlyFullscreen =
+        document.fullscreenElement === containerRef.current ||
+        document.fullscreenElement !== null;
 
-      if (!isCurrentlyFullscreen && isFullscreen) {
-        logViolation('fullscreen_exit', 'User exited fullscreen mode');
+      if (!isCurrentlyFullscreen && wasFullscreenRef.current) {
+        logViolation('fullscreen_exit', 'User exited fullscreen mode during contest');
       }
+
+      wasFullscreenRef.current = isCurrentlyFullscreen;
+      setIsFullscreen(isCurrentlyFullscreen);
     };
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, [enabled, isFullscreen, logViolation, containerRef]);
+  }, [enabled, logViolation, containerRef]);
 
-  /**
-   * Enter fullscreen programmatically
-   */
   const enterFullscreen = useCallback(async () => {
-    if (!containerRef?.current) return;
+    if (!containerRef?.current || isFlaggedRef.current) return;
     try {
       if (containerRef.current.requestFullscreen) {
         await containerRef.current.requestFullscreen();
+        wasFullscreenRef.current = true;
         setIsFullscreen(true);
       }
     } catch (err) {
@@ -153,9 +244,7 @@ export function useSecureContest({
     }
   }, [containerRef]);
 
-  /**
-   * FEATURE 2: Focus Monitoring (Tab Switch, Window Blur)
-   */
+  /** Focus monitoring */
   useEffect(() => {
     if (!enabled) return;
 
@@ -166,7 +255,8 @@ export function useSecureContest({
     };
 
     const handleWindowBlur = () => {
-      logViolation('focus_loss', 'Window lost focus (user minimized or switched apps)');
+      if (document.hidden) return;
+      logViolation('focus_loss', 'Window lost focus (minimized or switched applications)');
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -178,25 +268,22 @@ export function useSecureContest({
     };
   }, [enabled, logViolation]);
 
-  /**
-   * FEATURE 3: Keyboard Shortcut Blocking
-   */
+  /** Keyboard shortcut blocking */
   useEffect(() => {
     if (!enabled) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      const key = e.key.toUpperCase();
+      const key = e.key.length === 1 ? e.key.toUpperCase() : e.key.toUpperCase();
       const ctrlPressed = e.ctrlKey || e.metaKey;
       const shiftPressed = e.shiftKey;
 
-      // Check F12 separately
       if (key === 'F12') {
         e.preventDefault();
-        logViolation('keyboard_shortcut', 'Attempted F12 (Dev Tools)');
+        e.stopPropagation();
+        logViolation('keyboard_shortcut', 'Blocked: F12 (Dev Tools)');
         return;
       }
 
-      // Check other shortcuts
       for (const shortcut of BLOCKED_SHORTCUTS) {
         const isMatch =
           shortcut.key === key &&
@@ -205,50 +292,97 @@ export function useSecureContest({
 
         if (isMatch) {
           e.preventDefault();
-          logViolation('keyboard_shortcut', `Blocked: ${shortcut.name}`);
+          e.stopPropagation();
+          logViolation(shortcut.violationType, `Blocked: ${shortcut.name}`);
           return;
         }
       }
     };
 
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => document.removeEventListener('keydown', handleKeyDown, true);
   }, [enabled, logViolation]);
 
-  /**
-   * FEATURE 4: Context Menu Blocking (Right Click)
-   */
+  /** Clipboard event blocking (copy / cut / paste) */
+  useEffect(() => {
+    if (!enabled) return;
+
+    const isInsideContest = (target: EventTarget | null) => {
+      if (!containerRef?.current) return true;
+      return target instanceof Node && containerRef.current.contains(target);
+    };
+
+    const handleCopy = (e: ClipboardEvent) => {
+      if (!isInsideContest(e.target)) return;
+      e.preventDefault();
+      logViolation('copy_attempt', 'Copy operation blocked during contest');
+    };
+
+    const handleCut = (e: ClipboardEvent) => {
+      if (!isInsideContest(e.target)) return;
+      e.preventDefault();
+      logViolation('cut_attempt', 'Cut operation blocked during contest');
+    };
+
+    const handlePaste = (e: ClipboardEvent) => {
+      if (!isInsideContest(e.target)) return;
+      e.preventDefault();
+      logViolation('paste_attempt', 'Paste operation blocked during contest');
+    };
+
+    const handleBeforeInput = (e: InputEvent) => {
+      if (!isInsideContest(e.target)) return;
+      if (e.inputType === 'insertFromPaste' || e.inputType === 'insertFromDrop') {
+        e.preventDefault();
+        logViolation('paste_attempt', 'Paste input blocked during contest');
+      }
+    };
+
+    document.addEventListener('copy', handleCopy, true);
+    document.addEventListener('cut', handleCut, true);
+    document.addEventListener('paste', handlePaste, true);
+    document.addEventListener('beforeinput', handleBeforeInput, true);
+
+    return () => {
+      document.removeEventListener('copy', handleCopy, true);
+      document.removeEventListener('cut', handleCut, true);
+      document.removeEventListener('paste', handlePaste, true);
+      document.removeEventListener('beforeinput', handleBeforeInput, true);
+    };
+  }, [enabled, logViolation, containerRef]);
+
+  /** Context menu blocking inside contest area */
   useEffect(() => {
     if (!enabled) return;
 
     const handleContextMenu = (e: MouseEvent) => {
+      if (containerRef?.current && !containerRef.current.contains(e.target as Node)) {
+        return;
+      }
       e.preventDefault();
-      logViolation('context_menu', 'Right-click context menu blocked');
+      logViolation('context_menu', 'Right-click context menu blocked during contest');
     };
 
-    document.addEventListener('contextmenu', handleContextMenu);
-    return () => document.removeEventListener('contextmenu', handleContextMenu);
-  }, [enabled, logViolation]);
+    document.addEventListener('contextmenu', handleContextMenu, true);
+    return () => document.removeEventListener('contextmenu', handleContextMenu, true);
+  }, [enabled, logViolation, containerRef]);
 
-  /**
-   * Clear violations (for admin/reset)
-   */
   const clearViolations = useCallback(() => {
     setViolations([]);
     violationCountRef.current = 0;
   }, []);
 
-  /**
-   * Reset flagged status (admin only)
-   */
   const resetFlag = useCallback(() => {
+    isFlaggedRef.current = false;
     setIsFlagged(false);
   }, []);
 
   return {
     violations,
     violationCount: violations.length,
+    violationStats,
     isFlagged,
+    isDisqualified: isFlagged,
     isFullscreen,
     enterFullscreen,
     logViolation,

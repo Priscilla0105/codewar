@@ -196,6 +196,14 @@ export default memo(function CodeEditor({
     defineCodewarTheme(monaco);
     monaco.editor.setTheme("codewar-dark");
     editorInstance.focus();
+
+    const domNode = editorInstance.getDomNode();
+    if (domNode) {
+      domNode.addEventListener("copy", (e) => e.preventDefault(), true);
+      domNode.addEventListener("cut", (e) => e.preventDefault(), true);
+      domNode.addEventListener("paste", (e) => e.preventDefault(), true);
+      domNode.addEventListener("contextmenu", (e) => e.preventDefault(), true);
+    }
   }, []);
 
   const handleCopy = useCallback(() => {
@@ -210,9 +218,9 @@ export default memo(function CodeEditor({
   const displayFile = fileName ?? `SOLUTION.${LANG_EXT[language] ?? "TXT"}`;
 
   return (
-    <div className="flex flex-col h-full bg-[#0A0A0A] overflow-hidden">
-      {/* Editor toolbar */}
-      <div className="bg-[#0D0D0D] border-b border-[#2A2A2A] px-4 py-2 flex items-center gap-3 shrink-0 shadow-[0_1px_0_rgba(255,193,7,0.06)]">
+    <div className="codewar-editor flex flex-col h-full overflow-hidden">
+      {/* VS Code editor tab bar */}
+      <div className="vscode-editor-tabbar px-4 py-2 flex items-center gap-3 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <Code2Icon />
           <span className="text-[11px] font-semibold text-[#E8E8E8] tracking-wide truncate">{displayFile}</span>
@@ -314,7 +322,7 @@ export default memo(function CodeEditor({
       </div>
 
       {/* Monaco editor */}
-      <div className="flex-1 min-h-0 bg-[#0A0A0A]">
+      <div className="flex-1 min-h-0">
         <Editor
           height="100%"
           language={language === "cpp" ? "cpp" : language}
@@ -324,7 +332,7 @@ export default memo(function CodeEditor({
           onMount={handleEditorMount}
           theme="codewar-dark"
           loading={
-            <div className="flex items-center justify-center h-full bg-[#0A0A0A] text-[#8A8A8A] text-sm">
+            <div className="flex items-center justify-center h-full text-[#8A8A8A] text-sm" style={{ background: "#0a0a0a" }}>
               Loading editor…
             </div>
           }
