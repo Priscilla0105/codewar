@@ -1,12 +1,29 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from "react";
-import Editor from "@monaco-editor/react";
 import {
-  Trophy, CheckCircle2, XCircle, AlertTriangle, Send, Copy, Check, Play, Upload, RefreshCw,
-  ChevronDown, Zap, MessageSquare, Code2, Clock, X, AlertCircle, Shield, Eye,
+  Trophy,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  Send,
+  RefreshCw,
+  Zap,
+  MessageSquare,
+  Clock,
+  AlertCircle,
+  Shield,
+  Terminal,
+  FileText,
+  Swords,
+  Bot,
+  GripVertical,
+  GripHorizontal,
 } from "lucide-react";
 import { getSocket } from "../lib/socket";
-import { User, Problem } from "../types";
+import { User, Problem, ChatMessage, ExecutionResult } from "../types";
 import { useSecureContest, type Violation } from "../hooks/useSecureContest";
+import CodeEditor, { getDefaultCode, SUPPORTED_LANGUAGES } from "./CodeEditor";
+
+// ─── Types ───────────────────────────────────────────────────
 
 interface BattleProps {
   user: User;
@@ -16,68 +33,139 @@ interface BattleProps {
   isAiGame: boolean;
   isPractice?: boolean;
   onExitBattle: () => void;
+  onGameEnd?: (result: { winner: string; eloChange: number; matchData: any }) => void;
 }
 
-interface ExecutionResult {
-  success: boolean;
-  output: string;
-  error?: string;
-  executionTime: number;
-  testsPassed?: number;
-  totalTests?: number;
+type TerminalTab = "output" | "tests" | "debug";
+
+interface BattleSummary {
+  winnerName: string;
+  winnerId: string;
+  players: {
+    id: string;
+    username: string;
+    progress: number;
+    eloChange: number;
+    disqualified: boolean;
+  }[];
 }
 
-const LANGUAGES = [
-  { label: "C++", value: "cpp" },
-  { label: "C", value: "c" },
-  { label: "Java", value: "java" },
-  { label: "Python", value: "python" },
-  { label: "JavaScript", value: "javascript" },
-];
+// ─── Resize hook ─────────────────────────────────────────────
 
-const CODE_TEMPLATES: Record<string, string> = {
-  cpp: `#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    ios_base::sync_with_stdio(false);\n    cin.tie(NULL);\n    \n    return 0;\n}`,
-  c: `#include <stdio.h>\n\nint main() {\n    return 0;\n}`,
-  java: `import java.util.*;\npublic class Solution {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n    }\n}`,
-  python: `import sys\ninput = sys.stdin.readline\n\ndef solve():\n    pass\n\nsolve()`,
-  javascript: `const lines = require('fs').readFileSync('/dev/stdin','utf8').split('\\n');\nlet idx = 0;\nfunction solve() {}\nsolve();`,
-};
+function usePanelResize(initial: number, min: number, max: number) {
+  const [size, setSize] = useState(initial);
+  const sizeRef = useRef(initial);
+
+  const startResize = useCallback(
+    (e: React.MouseEvent, direction: 1 | -1) => {
+      e.preventDefault();
+      const startPos = e.clientX;
+      const startSize = sizeRef.current;
+
+      const onMove = (ev: MouseEvent) => {
+        const next = Math.min(max, Math.max(min, startSize + (ev.clientX - startPos) * direction));
+        sizeRef.current = next;
+        setSize(next);
+      };
+
+      const onUp = () => {
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      };
+
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
+    },
+    [min, max]
+  );
+
+  return { size, setSize, startResize };
+}
+
+function useVerticalResize(initial: number, min: number, max: number) {
+  const [size, setSize] = useState(initial);
+  const sizeRef = useRef(initial);
+
+  const startResize = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      const startPos = e.clientY;
+      const startSize = sizeRef.current;
+
+      const onMove = (ev: MouseEvent) => {
+        const next = Math.min(max, Math.max(min, startSize + (startPos - ev.clientY)));
+        sizeRef.current = next;
+        setSize(next);
+      };
+
+      const onUp = () => {
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      };
+
+      document.body.style.cursor = "row-resize";
+      document.body.style.userSelect = "none";
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
+    },
+    [min, max]
+  );
+
+  return { size, setSize, startResize };
+}
+
+// ─── Sub-components ──────────────────────────────────────────
 
 const ViolationWarningModal = memo(
-  ({ violation, violationCount, maxViolations, onDismiss }: any) => {
+  ({ violation, violationCount, maxViolations, onDismiss }: {
+    violation: Violation | null;
+    violationCount: number;
+    maxViolations: number;
+    onDismiss: () => void;
+  }) => {
     if (!violation) return null;
     const isCritical = violationCount >= maxViolations - 1;
 
     return (
       <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-        <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onDismiss} />
+        <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onDismiss} />
         <div
-          className={`relative w-full max-w-sm rounded-lg border-2 p-4 shadow-2xl ${
-            isCritical ? "bg-[#ff6b6b]/20 border-[#ff6b6b]" : "bg-[#111111] border-[#FFC107]/50"
+          className={`relative w-full max-w-sm rounded-lg border p-5 shadow-2xl ${
+            isCritical ? "bg-[#1A0A0A] border-[#FF4444]" : "bg-[#111] border-[#FFC107]/50"
           }`}
         >
           <div className="flex items-start gap-3">
-            <AlertCircle className={`w-5 h-5 mt-0.5 flex-shrink-0 ${isCritical ? "text-[#ff6b6b]" : "text-[#FFC107]"}`} />
+            <AlertCircle className={`w-5 h-5 mt-0.5 shrink-0 ${isCritical ? "text-[#FF6B6B]" : "text-[#FFC107]"}`} />
             <div className="flex-1">
               <h3 className="font-bold text-sm text-white mb-1">
                 {isCritical ? "Critical Violation" : "Contest Violation Detected"}
               </h3>
-              <p className="text-xs text-[#F5F5F5] mb-3">{violation.details}</p>
+              <p className="text-xs text-[#C8C8C8] mb-3 leading-relaxed">{violation.details}</p>
               <div className="flex items-center gap-2 mb-3">
-                <div className="flex-1 h-1.5 bg-black/40 rounded-full overflow-hidden">
+                <div className="flex-1 h-1.5 bg-black/50 rounded-full overflow-hidden">
                   <div
-                    className={`h-full transition-all ${isCritical ? "bg-[#ff6b6b]" : "bg-[#FFC107]"}`}
+                    className={`h-full transition-all ${isCritical ? "bg-[#FF6B6B]" : "bg-[#FFC107]"}`}
                     style={{ width: `${(violationCount / maxViolations) * 100}%` }}
                   />
                 </div>
-                <span className="text-xs font-bold">{violationCount}/{maxViolations}</span>
+                <span className="text-xs font-bold text-white font-serif">{violationCount}/{maxViolations}</span>
               </div>
-              {isCritical && <p className="text-xs text-[#ff6b6b] font-semibold mb-3">One more violation will flag your submission!</p>}
+              {isCritical && (
+                <p className="text-xs text-[#FF6B6B] font-semibold mb-2">
+                  One more violation will flag your submission!
+                </p>
+              )}
             </div>
           </div>
           <button
             onClick={onDismiss}
-            className="w-full mt-3 px-4 py-2 bg-[#2e2e2e] hover:bg-[#383838] rounded text-xs font-bold text-white transition-colors"
+            className="w-full mt-2 px-4 py-2.5 bg-[#1C1C1C] hover:bg-[#282828] rounded text-xs font-bold text-white transition-colors border border-[#333]"
           >
             Acknowledge
           </button>
@@ -88,28 +176,64 @@ const ViolationWarningModal = memo(
 );
 
 const FlaggedBanner = memo(({ flagReason }: { flagReason?: string }) => (
-  <div className="absolute inset-0 z-[200] bg-[#ff6b6b]/20 backdrop-blur-sm flex items-center justify-center pointer-events-none">
-    <div className="bg-[#ff6b6b]/30 border-2 border-[#ff6b6b] rounded-lg p-6 text-center max-w-md">
-      <AlertTriangle className="w-8 h-8 text-[#ff6b6b] mx-auto mb-3" />
+  <div className="absolute inset-0 z-[200] bg-[#FF6B6B]/15 backdrop-blur-sm flex items-center justify-center pointer-events-none">
+    <div className="bg-[#1A0A0A] border-2 border-[#FF4444] rounded-lg p-8 text-center max-w-md shadow-2xl">
+      <AlertTriangle className="w-10 h-10 text-[#FF6B6B] mx-auto mb-4" />
       <h2 className="text-lg font-bold text-white mb-2">Submission Flagged</h2>
-      <p className="text-sm text-white mb-4">{flagReason || "Your submission has been flagged for contest violations."}</p>
-      <p className="text-xs text-[#F5F5F5]">This incident has been logged and reported to administrators.</p>
+      <p className="text-sm text-[#E8E8E8] mb-3">{flagReason || "Your submission has been flagged for contest violations."}</p>
+      <p className="text-xs text-[#8A8A8A]">This incident has been logged and reported to administrators.</p>
     </div>
   </div>
 ));
 
 const DifficultyBadge = memo(({ difficulty }: { difficulty: string }) => {
-  const colorMap: Record<string, string> = {
-    easy: "bg-[#00cc44]/20 text-[#00cc44] border-[#00cc44]/30",
-    medium: "bg-[#FFC107]/20 text-[#FFC107] border-[#FFC107]/30",
-    hard: "bg-[#ff6b6b]/20 text-[#ff6b6b] border-[#ff6b6b]/30",
+  const d = difficulty?.toLowerCase() ?? "medium";
+  const styles: Record<string, string> = {
+    easy: "border-[#4EC9B0]/50 text-[#4EC9B0] bg-[#4EC9B0]/10",
+    medium: "border-[#FFC107]/50 text-[#FFC107] bg-[#FFC107]/10",
+    hard: "border-[#FF6B6B]/50 text-[#FF6B6B] bg-[#FF6B6B]/10",
   };
   return (
-    <span className={`text-[10px] font-bold uppercase tracking-[0.1em] px-2.5 py-1 rounded border ${colorMap[difficulty?.toLowerCase()] || colorMap.medium}`}>
-      {difficulty}
+    <span className={`text-[10px] font-bold uppercase tracking-[0.12em] px-2.5 py-1 rounded border ${styles[d] || styles.medium}`}>
+      {difficulty} Level
     </span>
   );
 });
+
+const PremiumSolvedBadge = memo(({ solved, total }: { solved: number; total: number }) => (
+  <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-[#141414] border border-[#2E2E2E] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+    <span className="text-[13px] text-[#9A9A9A] font-serif tracking-wide">Solved:</span>
+    <span className="text-[14px] font-bold text-[#4EC9B0] font-serif tabular-nums">{solved}/{total}</span>
+  </div>
+));
+
+const PremiumWarningBadge = memo(({ count, max }: { count: number; max: number }) => {
+  const critical = count >= max - 1;
+  return (
+    <div
+      className={`flex items-center gap-2 px-3 py-1.5 rounded-md border shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] ${
+        critical
+          ? "bg-[#2A1010] border-[#FF4444] animate-pulse"
+          : "bg-[#1E1410] border-[#CC3333]/70"
+      }`}
+    >
+      <AlertTriangle className={`w-4 h-4 shrink-0 ${critical ? "text-[#FFCC00]" : "text-[#FFCC00]"}`} />
+      <span className="text-[14px] font-bold text-[#FFCC00] font-serif tabular-nums">{count}/{max}</span>
+    </div>
+  );
+});
+
+// ─── Main component ────────────────────────────────────────────
+
+const BATTLE_DURATION = 300;
+
+const VIOLATION_TYPE_MAP: Record<string, string> = {
+  fullscreen_exit: "fullscreen-exit",
+  tab_switch: "tab-switch",
+  focus_loss: "tab-switch",
+  keyboard_shortcut: "devtools",
+  context_menu: "paste-detect",
+};
 
 export default memo(function BattleArena({
   user,
@@ -119,14 +243,15 @@ export default memo(function BattleArena({
   isAiGame,
   isPractice = false,
   onExitBattle,
+  onGameEnd,
 }: BattleProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const editorRef = useRef<any>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const battleSummaryRef = useRef<BattleSummary | null>(null);
+  const codeSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [code, setCode] = useState(CODE_TEMPLATES.cpp);
-  const [language, setLanguage] = useState("cpp");
-  const [showDropdown, setShowDropdown] = useState(false);
+  const [code, setCode] = useState(() => problem?.starterCode?.javascript ?? getDefaultCode("javascript"));
+  const [language, setLanguage] = useState("javascript");
   const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -134,360 +259,809 @@ export default memo(function BattleArena({
   const [battleFinished, setBattleFinished] = useState(false);
   const [showViolationModal, setShowViolationModal] = useState(false);
   const [lastViolation, setLastViolation] = useState<Violation | null>(null);
-  const [problemVisible, setProblemVisible] = useState(true);
+  const [timeLeft, setTimeLeft] = useState(BATTLE_DURATION);
+  const [terminalTab, setTerminalTab] = useState<TerminalTab>("output");
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+  const [leftTab, setLeftTab] = useState<"problem" | "submissions">("problem");
+  const [serverViolationCount, setServerViolationCount] = useState(0);
 
-  const { violations, violationCount, isFlagged, isFullscreen, enterFullscreen, logViolation } = useSecureContest({
+  const leftPanel = usePanelResize(340, 260, 520);
+  const rightPanel = usePanelResize(300, 220, 440);
+  const bottomPanel = useVerticalResize(200, 120, 400);
+
+  const appendDebug = useCallback((msg: string) => {
+    const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    setDebugLogs((prev) => [...prev.slice(-80), line]);
+  }, []);
+
+  const { violationCount, isFlagged, enterFullscreen } = useSecureContest({
     enabled: !isPractice,
     maxViolations: 3,
     containerRef,
     onViolation: (violation) => {
       setLastViolation(violation);
       setShowViolationModal(true);
+      appendDebug(`Violation: ${violation.type} — ${violation.details}`);
     },
     onFlagParticipant: () => {
       setBattleFinished(true);
+      appendDebug("Participant flagged — max violations reached");
     },
     emitSocket: (event, data) => {
       const socket = getSocket();
-      if (socket) socket.emit(event, { roomId, userId: user.id, ...data });
+      if (!socket) return;
+      if (event === "contest:violation") {
+        socket.emit("anti-cheat-alert", {
+          roomId,
+          type: VIOLATION_TYPE_MAP[data.type as string] ?? "devtools",
+          details: data.details,
+        });
+      }
     },
   });
 
-  const currentLang = LANGUAGES.find((l) => l.value === language) ?? LANGUAGES[0];
+  const displayViolationCount = Math.max(violationCount, serverViolationCount);
+  const solvedCount = players.filter((p) => p.isSolved || p.progress >= 100).length;
 
-  // Auto-fullscreen when battle starts
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const timerProgress = isPractice ? 100 : Math.max(0, (timeLeft / BATTLE_DURATION) * 100);
+  const timerUrgent = !isPractice && timeLeft <= 60;
+
+  // Auto-fullscreen on battle entry (mandatory — no manual toggle)
   useEffect(() => {
-    if (!isPractice && !isFlagged && containerRef.current) {
-      const timer = setTimeout(() => {
-        enterFullscreen();
-      }, 100);
+    if (!isPractice && !isFlagged && !battleFinished && containerRef.current) {
+      const timer = setTimeout(() => enterFullscreen(), 150);
       return () => clearTimeout(timer);
     }
-  }, [isPractice, isFlagged, enterFullscreen]);
+  }, [isPractice, isFlagged, battleFinished, enterFullscreen]);
 
-  const [timeLeft, setTimeLeft] = useState(300); // 5 mins
+  // Socket listeners
   useEffect(() => {
-  const timer = setInterval(() => {
-    setTimeLeft((prev) => {
-      if (prev <= 1) {
-        clearInterval(timer);
-        return 0;
-      }
-      return prev - 1;
+    const socket = getSocket();
+
+    const onTimerTick = ({ timer }: { timer: number }) => {
+      if (!battleFinished) setTimeLeft(timer);
+    };
+
+    const onOpponentSync = ({ progress }: { progress: number }) => {
+      setPlayers((prev) =>
+        prev.map((p) =>
+          p.id !== user.id
+            ? { ...p, progress: progress ?? p.progress, isSolved: (progress ?? p.progress) >= 100 }
+            : p
+        )
+      );
+    };
+
+    const onChatMessage = (msg: ChatMessage) => {
+      setChatMessages((prev) => [...prev, msg]);
+    };
+
+    const onCheatingWarning = ({ warnings, details }: { warnings: number; details: string }) => {
+      setServerViolationCount(warnings);
+      appendDebug(`Server warning ${warnings}/3: ${details}`);
+    };
+
+    const onDisqualification = ({ username, details }: { username: string; details: string }) => {
+      appendDebug(`Disqualification: ${username} — ${details}`);
+      if (username === user.username) setBattleFinished(true);
+    };
+
+    const onBattleTimeout = ({ details }: { details: string }) => {
+      appendDebug(`Battle timeout: ${details}`);
+      setBattleFinished(true);
+    };
+
+    const onBattleSummary = (data: BattleSummary) => {
+      battleSummaryRef.current = data;
+      setPlayers((prev) =>
+        prev.map((p) => {
+          const updated = data.players.find((bp) => bp.id === p.id);
+          return updated
+            ? { ...p, progress: updated.progress, isSolved: updated.progress >= 100, disqualified: updated.disqualified }
+            : p;
+        })
+      );
+      setBattleFinished(true);
+      appendDebug(`Battle ended — winner: ${data.winnerName || "Draw"}`);
+    };
+
+    const onOpponentAbandoned = ({ username, details }: { username: string; details: string }) => {
+      appendDebug(`${username} abandoned: ${details}`);
+    };
+
+    socket.on("timer-tick", onTimerTick);
+    socket.on("opponent-sync", onOpponentSync);
+    socket.on("chat-message", onChatMessage);
+    socket.on("cheating-warning", onCheatingWarning);
+    socket.on("disqualification-alert", onDisqualification);
+    socket.on("battle-timeout", onBattleTimeout);
+    socket.on("battle-summary", onBattleSummary);
+    socket.on("opponent-abandoned", onOpponentAbandoned);
+
+    appendDebug(`Joined room ${roomId}`);
+
+    return () => {
+      socket.off("timer-tick", onTimerTick);
+      socket.off("opponent-sync", onOpponentSync);
+      socket.off("chat-message", onChatMessage);
+      socket.off("cheating-warning", onCheatingWarning);
+      socket.off("disqualification-alert", onDisqualification);
+      socket.off("battle-timeout", onBattleTimeout);
+      socket.off("battle-summary", onBattleSummary);
+      socket.off("opponent-abandoned", onOpponentAbandoned);
+    };
+  }, [roomId, user.id, user.username, battleFinished, appendDebug]);
+
+  // Scroll chat to bottom
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages]);
+
+  // Debounced code sync to server
+  useEffect(() => {
+    if (!code || battleFinished) return;
+    if (codeSyncTimerRef.current) clearTimeout(codeSyncTimerRef.current);
+    codeSyncTimerRef.current = setTimeout(() => {
+      const socket = getSocket();
+      const myProgress = players.find((p) => p.id === user.id)?.progress ?? 0;
+      socket.emit("code-sync", { roomId, code, progress: myProgress });
+    }, 1200);
+    return () => {
+      if (codeSyncTimerRef.current) clearTimeout(codeSyncTimerRef.current);
+    };
+  }, [code, roomId, battleFinished, players, user.id]);
+
+  const handleLanguageChange = useCallback(
+    (lang: string) => {
+      setLanguage(lang);
+      const starter = problem?.starterCode?.[lang as keyof typeof problem.starterCode];
+      setCode(starter ?? getDefaultCode(lang));
+    },
+    [problem]
+  );
+
+  // Sync language state when CodeEditor triggers change via callback
+  const onEditorLanguageChange = useCallback(
+    (lang: string) => {
+      handleLanguageChange(lang);
+    },
+    [handleLanguageChange]
+  );
+
+  const apiCall = useCallback(async (endpoint: string, body: object) => {
+    const token = localStorage.getItem("token");
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
     });
-  }, 1000);
-
-  return () => clearInterval(timer);
-}, []);
-const formatTime = (seconds: number) => {
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${mins}:${secs.toString().padStart(2, "0")}`;
-};
-
-  const handleLanguageChange = useCallback((lang: string) => {
-    setLanguage(lang);
-    setShowDropdown(false);
-    setCode(CODE_TEMPLATES[lang] ?? "");
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Request failed");
+    return data;
   }, []);
 
   const handleRunCode = useCallback(async () => {
     setIsRunning(true);
+    setTerminalTab("output");
+    appendDebug("Running visible test cases…");
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      setExecutionResult({
-        success: true,
-        output: "Program output here",
-        executionTime: 45,
+      const data = await apiCall("/api/compiler/run", {
+        problemId: problem.id,
+        language,
+        code,
       });
-    } catch (err) {
+      const result = data.result;
+      const passed = result.status === "Accepted" ? (problem.visibleTestCases?.length ?? 1) : 0;
+      const total = problem.visibleTestCases?.length ?? 1;
+
+      setExecutionResult({
+        success: result.status === "Accepted",
+        output: result.actualOutput || result.status,
+        error: result.status !== "Accepted" ? `${result.status}${result.actualOutput ? `: ${result.actualOutput}` : ""}` : undefined,
+        executionTime: result.executionTimeMs ?? 0,
+        executionTimeMs: result.executionTimeMs,
+        memoryUsageKb: result.memoryUsageKb,
+        testsPassed: passed,
+        totalTests: total,
+        failedTestCaseIndex: result.failedTestCaseIndex,
+        actualOutput: result.actualOutput,
+        expectedOutput: result.expectedOutput,
+        verdict: result.status,
+      });
+      appendDebug(`Run complete — ${result.status} (${result.executionTimeMs}ms)`);
+    } catch (err: any) {
       setExecutionResult({
         success: false,
         output: "",
-        error: "Execution failed",
+        error: err.message || "Execution failed",
         executionTime: 0,
       });
+      appendDebug(`Run failed: ${err.message}`);
     } finally {
       setIsRunning(false);
     }
-  }, []);
+  }, [apiCall, problem, language, code, appendDebug]);
 
   const handleSubmitCode = useCallback(async () => {
     setIsSubmitting(true);
+    setTerminalTab("tests");
+    appendDebug("Submitting solution…");
     try {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      setBattleFinished(true);
+      const data = await apiCall("/api/compiler/submit", {
+        problemId: problem.id,
+        language,
+        code,
+        wpm: 0,
+        accuracy: 100,
+      });
+      const result = data.result;
+      const total = (problem.visibleTestCases?.length ?? 0) + (problem.hiddenTestCases?.length ?? 0);
+      const passed = result.status === "Accepted" ? total : (result.failedTestCaseIndex ?? 0);
+
+      setExecutionResult({
+        success: result.status === "Accepted",
+        output: result.status,
+        error: result.status !== "Accepted" ? `${result.status}${result.actualOutput ? `: ${result.actualOutput}` : ""}` : undefined,
+        executionTime: result.executionTimeMs ?? 0,
+        executionTimeMs: result.executionTimeMs,
+        memoryUsageKb: result.memoryUsageKb,
+        testsPassed: passed,
+        totalTests: total,
+        failedTestCaseIndex: result.failedTestCaseIndex,
+        actualOutput: result.actualOutput,
+        expectedOutput: result.expectedOutput,
+        verdict: result.status,
+      });
+
+      if (result.status === "Accepted") {
+        const socket = getSocket();
+        socket.emit("code-final-submit", { roomId, wpm: 0, accuracy: 100 });
+        setPlayers((prev) =>
+          prev.map((p) => (p.id === user.id ? { ...p, isSolved: true, progress: 100 } : p))
+        );
+        appendDebug("Solution accepted — all tests passed");
+      } else {
+        appendDebug(`Submission rejected — ${result.status}`);
+      }
+    } catch (err: any) {
+      setExecutionResult({
+        success: false,
+        output: "",
+        error: err.message || "Submission failed",
+        executionTime: 0,
+      });
+      appendDebug(`Submit failed: ${err.message}`);
     } finally {
       setIsSubmitting(false);
     }
-  }, []);
+  }, [apiCall, problem, language, code, roomId, user.id, appendDebug]);
 
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setShowDropdown(false);
-      }
-    };
-    if (showDropdown) {
-      document.addEventListener("mousedown", handler);
-      return () => document.removeEventListener("mousedown", handler);
+  const handleSendChat = useCallback(() => {
+    const msg = chatInput.trim();
+    if (!msg || battleFinished) return;
+    const socket = getSocket();
+    socket.emit("chat-message", { roomId, message: msg, senderName: user.username });
+    setChatInput("");
+  }, [chatInput, roomId, user.username, battleFinished]);
+
+  const handleExit = useCallback(() => {
+    if (battleSummaryRef.current && onGameEnd) {
+      const summary = battleSummaryRef.current;
+      const myPlayer = summary.players.find((p) => p.id === user.id);
+      onGameEnd({
+        winner: summary.winnerId,
+        eloChange: Math.abs(myPlayer?.eloChange ?? 0),
+        matchData: summary,
+      });
+    } else {
+      onExitBattle();
     }
-  }, [showDropdown]);
+  }, [onGameEnd, onExitBattle, user.id]);
+
+  const pointsMap: Record<string, number> = { easy: 100, medium: 200, hard: 300 };
+  const diffKey = problem?.difficulty?.toLowerCase() ?? "medium";
+  const points = pointsMap[diffKey] ?? 200;
 
   return (
-    <div ref={containerRef} className="relative w-full h-full flex flex-col bg-[#050505] font-['Space_Grotesk'] overflow-hidden">
-      {/* ── Top Status Bar ────────────────────────────── */}
-      <header className="h-10 bg-[#0D0D0D] border-b border-[#8A8A8A]/20 flex items-center px-4 gap-4 shrink-0">
-        <div className="flex items-center gap-3">
-          <Shield className="w-4 h-4 text-[#FFC107]" />
-          <span className="text-[10px] font-bold text-[#FFC107] uppercase tracking-[0.08em]">
-            {problem?.title || "Battle Arena"}
-          </span>
+    <div
+      ref={containerRef}
+      className="relative w-full h-full flex flex-col bg-[#050505] overflow-hidden select-none"
+      style={{ fontFamily: "'Segoe UI', system-ui, sans-serif" }}
+    >
+      {/* ── Top bar ───────────────────────────────────────── */}
+      <header className="h-11 bg-[#0A0A0A] border-b border-[#1E1E1E] flex items-center px-4 gap-4 shrink-0 shadow-[0_2px_8px_rgba(0,0,0,0.4)]">
+        <div className="flex items-center gap-2.5">
+          <Swords className="w-4 h-4 text-[#FFC107]" />
+          <span className="text-[11px] font-bold text-[#FFC107] uppercase tracking-[0.14em]">CodeWar</span>
+          <span className="text-[#333]">|</span>
+          <span className="text-[11px] text-[#6A6A6A] uppercase tracking-wider">Battle Round</span>
+          <span className="text-[10px] text-[#444] font-mono hidden sm:inline">ID: {roomId.slice(0, 12)}</span>
         </div>
 
-        <div className="flex-1 flex items-center gap-4 mx-4">
-          <div className="flex items-center gap-1.5">
-            <Clock className="w-3.5 h-3.5 text-[#FFC107]" />
-          </div>
-          <div className="h-1 flex-1 bg-[#111111] rounded-full overflow-hidden">
-            <div className="h-full w-3/4 bg-gradient-to-r from-[#FFC107] to-[#FFD54F]" />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3 ml-auto">
-          <DifficultyBadge difficulty={problem?.difficulty || "medium"} />
-          
-          <div className="flex items-center gap-1.5 px-2 py-1 bg-[#111111] rounded border border-[#555555]">
-            <span className="text-[10px] text-[#8A8A8A]">Participants:</span>
-            <span className="text-[10px] font-bold text-[#FFC107]">{players.length}</span>
-          </div>
-
-          {!isPractice && violationCount > 0 && (
-            <div className={`flex items-center gap-1.5 px-2 py-1 rounded border ${
-              violationCount >= 2 ? "bg-[#ff6b6b]/20 border-[#ff6b6b] animate-pulse" : "bg-[#FFC107]/20 border-[#FFC107]"
+        {/* Timer */}
+        <div className="flex-1 flex items-center gap-3 max-w-md mx-auto">
+          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded border ${
+            timerUrgent ? "border-[#FF4444]/60 bg-[#1A0A0A]" : "border-[#2A2A2A] bg-[#111]"
+          }`}>
+            <Clock className={`w-3.5 h-3.5 ${timerUrgent ? "text-[#FF6B6B]" : "text-[#FFC107]"}`} />
+            <span className={`text-sm font-bold font-mono tabular-nums ${
+              timerUrgent ? "text-[#FF6B6B]" : "text-[#E8E8E8]"
             }`}>
-              <AlertTriangle className="w-3.5 h-3.5 text-[#FFC107]" />
-              <span className="text-[10px] font-bold text-[#FFC107]">{violationCount}/3</span>
+              {isPractice ? "∞" : formatTime(timeLeft)}
+            </span>
+          </div>
+          {!isPractice && (
+            <div className="flex-1 h-1.5 bg-[#141414] rounded-full overflow-hidden border border-[#222]">
+              <div
+                className={`h-full transition-all duration-1000 rounded-full ${
+                  timerUrgent
+                    ? "bg-gradient-to-r from-[#FF4444] to-[#FF6B6B]"
+                    : "bg-gradient-to-r from-[#FFC107] to-[#FFD54F]"
+                }`}
+                style={{ width: `${timerProgress}%` }}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Right status badges */}
+        <div className="flex items-center gap-2.5 ml-auto">
+          {!isPractice && (
+            <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded border border-[#2A2A2A] bg-[#111]">
+              <Shield className="w-3 h-3 text-[#4EC9B0]" />
+              <span className="text-[10px] text-[#6A6A6A]">Secure</span>
             </div>
           )}
 
-          <button
-            onClick={() => setProblemVisible(!problemVisible)}
-            title="Toggle problem panel"
-            className="p-1.5 text-[#8A8A8A] hover:text-[#FFC107] hover:bg-[#111111] rounded transition-colors"
-          >
-            <MessageSquare className="w-3.5 h-3.5" />
-          </button>
+          <PremiumSolvedBadge solved={solvedCount} total={players.length} />
+
+          {!isPractice && displayViolationCount > 0 && (
+            <PremiumWarningBadge count={displayViolationCount} max={3} />
+          )}
+
+          <DifficultyBadge difficulty={problem?.difficulty || "Medium"} />
         </div>
       </header>
 
-      {/* ── Violation Warning Modal ────────────────────── */}
+      {/* Modals & overlays */}
       {!isPractice && (
         <ViolationWarningModal
           violation={showViolationModal ? lastViolation : null}
-          violationCount={violationCount}
+          violationCount={displayViolationCount}
           maxViolations={3}
           onDismiss={() => setShowViolationModal(false)}
         />
       )}
-
-      {/* ── Flagged Overlay ───────────────────────────── */}
       {isFlagged && <FlaggedBanner flagReason="Multiple contest violations detected" />}
 
-      {/* ── Main Content ──────────────────────────────── */}
-      <div className="flex-1 flex overflow-hidden gap-0">
-        {/* Problem Panel (Collapsible) */}
-        {problemVisible && (
-          <div className="w-80 shrink-0 overflow-y-auto bg-[#050505] border-r border-[#8A8A8A]/20 px-5 py-4 space-y-4">
-            <div className="flex items-start justify-between gap-3">
-              <h1 className="text-base font-bold text-[#ffffff] leading-tight">{problem?.title || "Loading…"}</h1>
-              <button
-                onClick={() => setProblemVisible(false)}
-                className="p-1 text-[#8A8A8A] hover:text-[#FFC107] transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {problem?.tags?.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {problem.tags.map((tag: string) => (
-                  <span key={tag} className="text-[10px] px-2 py-1 rounded bg-[#111111] border border-[#555555] text-[#F5F5F5]">
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            <div className="prose prose-invert prose-sm max-w-none text-[#F5F5F5] text-sm leading-relaxed">
-              <p>{problem?.description}</p>
-            </div>
-
-            {problem?.sampleInput && (
-              <div className="space-y-1.5">
-                <p className="text-[10px] font-bold text-[#FFC107] uppercase">Input Format</p>
-                <pre className="bg-[#0D0D0D] border border-[#555555] rounded px-3 py-2 text-xs text-[#00cc44] overflow-x-auto">
-                  {problem.sampleInput}
-                </pre>
-              </div>
-            )}
-
-            {problem?.sampleOutput && (
-              <div className="space-y-1.5">
-                <p className="text-[10px] font-bold text-[#FFC107] uppercase">Output Format</p>
-                <pre className="bg-[#0D0D0D] border border-[#555555] rounded px-3 py-2 text-xs text-[#66b3ff] overflow-x-auto">
-                  {problem.sampleOutput}
-                </pre>
-              </div>
-            )}
+      {/* ── Main layout ───────────────────────────────────── */}
+      <div className="flex-1 flex overflow-hidden min-h-0">
+        {/* LEFT — Problem panel */}
+        <aside
+          style={{ width: leftPanel.size }}
+          className="shrink-0 flex flex-col bg-[#080808] border-r border-[#1A1A1A] overflow-hidden"
+        >
+          <div className="flex border-b border-[#1A1A1A] shrink-0">
+            <button
+              onClick={() => setLeftTab("problem")}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                leftTab === "problem"
+                  ? "text-[#FFC107] border-b-2 border-[#FFC107] bg-[#111]"
+                  : "text-[#6A6A6A] hover:text-[#AAA]"
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              Problem
+            </button>
+            <button
+              onClick={() => setLeftTab("submissions")}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                leftTab === "submissions"
+                  ? "text-[#FFC107] border-b-2 border-[#FFC107] bg-[#111]"
+                  : "text-[#6A6A6A] hover:text-[#AAA]"
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5" />
+              Submissions
+            </button>
           </div>
-        )}
 
-        {/* Center Panel: Editor & Terminal */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Editor Header */}
-          <div className="h-10 bg-[#0D0D0D] border-b border-[#8A8A8A]/20 flex items-center px-3 gap-2 shrink-0">
-            <span className="text-[10px] font-bold text-[#FFC107] uppercase tracking-[0.08em]">Editor</span>
-
-            <div className="relative" ref={dropdownRef}>
-              <button
-                onClick={() => setShowDropdown(!showDropdown)}
-                className="flex items-center gap-1.5 px-2 py-0.5 text-[10px] bg-[#111111] hover:bg-[#2e2e2e] border border-[#555555] rounded text-[#ffffff] transition-colors"
-                disabled={battleFinished}
-              >
-                {currentLang.label}
-                <ChevronDown className={`w-3 h-3 transition-transform ${showDropdown ? "rotate-180" : ""}`} />
-              </button>
-
-              {showDropdown && (
-                <div className="absolute top-full left-0 mt-1 bg-[#0D0D0D] border border-[#555555] rounded shadow-lg z-50 min-w-[130px] overflow-hidden">
-                  {LANGUAGES.map((lang) => (
-                    <button
-                      key={lang.value}
-                      onClick={() => handleLanguageChange(lang.value)}
-                      className={`w-full text-left px-3 py-1.5 text-[10px] transition-colors ${
-                        language === lang.value
-                          ? "bg-[#FFC107]/20 text-[#FFC107] font-semibold"
-                          : "text-[#F5F5F5] hover:bg-[#111111]"
-                      }`}
-                    >
-                      {lang.label}
-                    </button>
-                  ))}
+          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+            {leftTab === "problem" ? (
+              <>
+                <div className="flex items-center justify-between gap-2">
+                  <DifficultyBadge difficulty={problem?.difficulty || "Medium"} />
+                  <span className="text-[10px] font-bold text-[#FFC107] uppercase tracking-wider">{points} Points</span>
                 </div>
-              )}
-            </div>
 
-            <div className="flex-1" />
+                <h1 className="text-lg font-bold text-white leading-snug tracking-tight">
+                  {problem?.title || "Loading…"}
+                </h1>
 
-            <button
-              onClick={handleRunCode}
-              disabled={isRunning || isSubmitting || battleFinished}
-              className="flex items-center gap-1 px-2 py-0.5 text-[10px] bg-[#0066cc] hover:bg-[#0052a3] disabled:opacity-50 text-white font-bold rounded transition-colors"
-            >
-              {isRunning ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
-              Run
-            </button>
-
-            <button
-              onClick={handleSubmitCode}
-              disabled={isRunning || isSubmitting || battleFinished}
-              className="flex items-center gap-1 px-2 py-0.5 text-[10px] bg-[#FFC107] hover:bg-[#FFD54F] disabled:opacity-50 text-black font-bold rounded transition-colors"
-            >
-              {isSubmitting ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
-              Submit
-            </button>
-          </div>
-
-          {/* Monaco Editor */}
-          <div className="flex-1 overflow-hidden">
-            <Editor
-              height="100%"
-              language={language}
-              value={code}
-              onChange={(v) => setCode(v ?? "")}
-              onMount={(ed) => (editorRef.current = ed)}
-              theme="cyber-arena"
-              options={{
-                minimap: { enabled: false },
-                fontSize: 13,
-                fontFamily: "'JetBrains Mono', monospace",
-                lineNumbers: "on",
-                bracketPairColorization: { enabled: true },
-                autoClosingBrackets: "always",
-                autoIndent: "full",
-                wordWrap: "on",
-                scrollBeyondLastLine: false,
-                cursorBlinking: "smooth",
-                smoothScrolling: true,
-                padding: { top: 12, bottom: 12 },
-                tabSize: language === "python" ? 4 : 2,
-                readOnly: battleFinished,
-                contextmenu: false,
-              }}
-            />
-          </div>
-
-          {/* Terminal */}
-          <div className="h-40 overflow-y-auto bg-[#050505] border-t border-[#8A8A8A]/20 px-4 py-3">
-            <div className="px-4 py-2 border-b border-[#8A8A8A]/20 flex items-center gap-2 mb-3">
-              <span className="text-[10px] font-bold text-[#FFC107] uppercase">Terminal Output</span>
-              {executionResult?.executionTime && <span className="text-[9px] text-[#8A8A8A] ml-auto">{executionResult.executionTime}ms</span>}
-            </div>
-
-            {isRunning || isSubmitting ? (
-              <div className="flex items-center gap-2 text-[#F5F5F5]">
-                <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#FFC107]" />
-                {isRunning ? "Running code…" : "Submitting…"}
-              </div>
-            ) : executionResult ? (
-              <div className="space-y-2">
-                {executionResult.success ? (
-                  <div className="flex items-start gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-[#00cc44] mt-0.5" />
-                    <div>
-                      <p className="text-[#00cc44] font-semibold mb-1">Execution Successful</p>
-                      <pre className="bg-[#0D0D0D] border border-[#00cc44]/20 rounded p-2 text-xs text-[#00cc44] overflow-auto max-h-24">
-                        {executionResult.output}
-                      </pre>
-                    </div>
+                {problem?.tags?.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {problem.tags.map((tag: string) => (
+                      <span
+                        key={tag}
+                        className="text-[10px] px-2 py-0.5 rounded border border-[#2A2A2A] bg-[#111] text-[#9A9A9A]"
+                      >
+                        {tag}
+                      </span>
+                    ))}
                   </div>
-                ) : (
-                  <div className="flex items-start gap-2">
-                    <XCircle className="w-4 h-4 text-[#ff6b6b] mt-0.5" />
-                    <div>
-                      <p className="text-[#ff6b6b] font-semibold mb-1">Execution Failed</p>
-                      <pre className="bg-[#0D0D0D] border border-[#ff6b6b]/20 rounded p-2 text-xs text-[#ff6b6b] overflow-auto max-h-24">
-                        {executionResult.error || executionResult.output}
-                      </pre>
-                    </div>
+                )}
+
+                <div className="text-sm text-[#C8C8C8] leading-relaxed">{problem?.description}</div>
+
+                {problem?.inputFormat && (
+                  <section className="space-y-2">
+                    <h3 className="text-[10px] font-bold text-[#FFC107] uppercase tracking-[0.12em]">Input Format</h3>
+                    <p className="text-xs text-[#A0A0A0] leading-relaxed whitespace-pre-wrap">{problem.inputFormat}</p>
+                  </section>
+                )}
+
+                {problem?.outputFormat && (
+                  <section className="space-y-2">
+                    <h3 className="text-[10px] font-bold text-[#FFC107] uppercase tracking-[0.12em]">Output Format</h3>
+                    <p className="text-xs text-[#A0A0A0] leading-relaxed whitespace-pre-wrap">{problem.outputFormat}</p>
+                  </section>
+                )}
+
+                {problem?.constraints?.length > 0 && (
+                  <section className="space-y-2">
+                    <h3 className="text-[10px] font-bold text-[#FFC107] uppercase tracking-[0.12em]">Constraints</h3>
+                    <ul className="space-y-1">
+                      {problem.constraints.map((c: string, i: number) => (
+                        <li key={i} className="text-xs text-[#A0A0A0] font-mono leading-relaxed">
+                          • {c}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+
+                {(problem?.visibleTestCases?.length > 0 || problem?.sampleInput) && (
+                  <section className="space-y-3">
+                    <h3 className="text-[10px] font-bold text-[#FFC107] uppercase tracking-[0.12em]">Examples</h3>
+                    {problem.visibleTestCases?.length > 0
+                      ? problem.visibleTestCases.map((tc, i) => (
+                          <div key={i} className="space-y-2">
+                            <p className="text-[10px] text-[#6A6A6A] font-semibold">Example {i + 1}</p>
+                            <div>
+                              <p className="text-[9px] text-[#555] uppercase mb-1">Input</p>
+                              <pre className="bg-[#0A0A0A] border border-[#222] rounded px-3 py-2 text-xs text-[#4EC9B0] font-mono overflow-x-auto">
+                                {tc.input}
+                              </pre>
+                            </div>
+                            <div>
+                              <p className="text-[9px] text-[#555] uppercase mb-1">Output</p>
+                              <pre className="bg-[#0A0A0A] border border-[#222] rounded px-3 py-2 text-xs text-[#66B3FF] font-mono overflow-x-auto">
+                                {tc.expectedOutput}
+                              </pre>
+                            </div>
+                          </div>
+                        ))
+                      : (
+                        <>
+                          {problem.sampleInput && (
+                            <div>
+                              <p className="text-[9px] text-[#555] uppercase mb-1">Sample Input</p>
+                              <pre className="bg-[#0A0A0A] border border-[#222] rounded px-3 py-2 text-xs text-[#4EC9B0] font-mono overflow-x-auto">
+                                {problem.sampleInput}
+                              </pre>
+                            </div>
+                          )}
+                          {problem.sampleOutput && (
+                            <div>
+                              <p className="text-[9px] text-[#555] uppercase mb-1">Sample Output</p>
+                              <pre className="bg-[#0A0A0A] border border-[#222] rounded px-3 py-2 text-xs text-[#66B3FF] font-mono overflow-x-auto">
+                                {problem.sampleOutput}
+                              </pre>
+                            </div>
+                          )}
+                        </>
+                      )}
+                  </section>
+                )}
+              </>
+            ) : (
+              <div className="text-center py-8 text-[#555] text-xs">
+                <Clock className="w-8 h-8 mx-auto mb-3 opacity-40" />
+                <p>Submission history will appear here after you submit.</p>
+                {executionResult?.verdict && (
+                  <div className={`mt-4 px-3 py-2 rounded border text-left ${
+                    executionResult.success ? "border-[#4EC9B0]/30 bg-[#4EC9B0]/10" : "border-[#FF6B6B]/30 bg-[#FF6B6B]/10"
+                  }`}>
+                    <p className={`text-xs font-bold ${executionResult.success ? "text-[#4EC9B0]" : "text-[#FF6B6B]"}`}>
+                      {executionResult.verdict}
+                    </p>
+                    {executionResult.executionTimeMs != null && (
+                      <p className="text-[10px] text-[#6A6A6A] mt-1">{executionResult.executionTimeMs}ms</p>
+                    )}
                   </div>
                 )}
               </div>
-            ) : (
-              <p className="text-[#8A8A8A]">Output will appear here…</p>
             )}
           </div>
+
+          <div className="shrink-0 p-3 border-t border-[#1A1A1A]">
+            <button
+              onClick={handleSubmitCode}
+              disabled={isRunning || isSubmitting || battleFinished}
+              className="w-full py-2.5 bg-[#FFC107] hover:bg-[#FFD54F] disabled:opacity-50 text-black font-bold text-xs uppercase tracking-wider rounded shadow-[0_0_16px_rgba(255,193,7,0.2)] transition-colors"
+            >
+              {isSubmitting ? "Submitting…" : "Submit Code"}
+            </button>
+          </div>
+        </aside>
+
+        {/* Left resize handle */}
+        <div
+          className="w-1 shrink-0 bg-[#141414] hover:bg-[#FFC107]/40 cursor-col-resize flex items-center justify-center group transition-colors"
+          onMouseDown={(e) => leftPanel.startResize(e, 1)}
+        >
+          <GripVertical className="w-3 h-3 text-[#333] group-hover:text-[#FFC107]/60 opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
+
+        {/* CENTER — Editor + Terminal */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <CodeEditor
+              code={code}
+              setCode={setCode}
+              language={language}
+              setLanguage={setLanguage}
+              onLanguageChange={onEditorLanguageChange}
+              disabled={battleFinished || isFlagged}
+              onRun={handleRunCode}
+              onSubmit={handleSubmitCode}
+              isRunning={isRunning}
+              isSubmitting={isSubmitting}
+              executionStats={
+                executionResult
+                  ? { runtime: executionResult.executionTimeMs, memory: executionResult.memoryUsageKb }
+                  : undefined
+              }
+            />
+          </div>
+
+          {/* Terminal resize handle */}
+          <div
+            className="h-1 shrink-0 bg-[#141414] hover:bg-[#FFC107]/40 cursor-row-resize flex items-center justify-center group transition-colors"
+            onMouseDown={bottomPanel.startResize}
+          >
+            <GripHorizontal className="w-3 h-3 text-[#333] group-hover:text-[#FFC107]/60 opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
+
+          {/* BOTTOM — Terminal */}
+          <div
+            style={{ height: bottomPanel.size }}
+            className="shrink-0 flex flex-col bg-[#080808] border-t border-[#1A1A1A] overflow-hidden"
+          >
+            <div className="flex items-center border-b border-[#1A1A1A] shrink-0">
+              <Terminal className="w-3.5 h-3.5 text-[#FFC107] ml-3" />
+              <span className="text-[10px] font-bold text-[#FFC107] uppercase tracking-wider ml-2 py-2">Terminal Output</span>
+              <div className="flex ml-4 gap-0">
+                {(["output", "tests", "debug"] as TerminalTab[]).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setTerminalTab(tab)}
+                    className={`px-3 py-2 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+                      terminalTab === tab
+                        ? "text-[#FFC107] border-b-2 border-[#FFC107]"
+                        : "text-[#555] hover:text-[#888]"
+                    }`}
+                  >
+                    {tab === "output" ? "Output" : tab === "tests" ? "Test Results" : "Debug"}
+                  </button>
+                ))}
+              </div>
+              <div className="flex-1" />
+              {executionResult?.executionTimeMs != null && (
+                <span className="text-[10px] text-[#555] mr-3 font-mono">{executionResult.executionTimeMs}ms</span>
+              )}
+              <div className="flex items-center gap-1.5 mr-3">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#4EC9B0] animate-pulse" />
+                <span className="text-[9px] text-[#555] uppercase">Stable Session</span>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-4 py-3 font-mono text-xs">
+              {terminalTab === "output" && (
+                <>
+                  {isRunning || isSubmitting ? (
+                    <div className="flex items-center gap-2 text-[#C8C8C8]">
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#FFC107]" />
+                      <span>{isRunning ? "> [PROCESS] Running test suite…" : "> [PROCESS] Submitting solution…"}</span>
+                    </div>
+                  ) : executionResult ? (
+                    <div className="space-y-2">
+                      <p className={executionResult.success ? "text-[#4EC9B0]" : "text-[#FF6B6B]"}>
+                        {`> [STATUS] ${executionResult.verdict || (executionResult.success ? "Execution Successful" : "Execution Failed")}`}
+                      </p>
+                      {executionResult.success && executionResult.output && (
+                        <pre className="text-[#C8C8C8] whitespace-pre-wrap">{`> [RESULT] ${executionResult.output}`}</pre>
+                      )}
+                      {executionResult.error && (
+                        <pre className="text-[#FF6B6B] whitespace-pre-wrap">{`> [ERROR] ${executionResult.error}`}</pre>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-[#444]">{"> [LOG] Output will appear here after running tests…"}</p>
+                  )}
+                </>
+              )}
+
+              {terminalTab === "tests" && (
+                <div className="space-y-2">
+                  {executionResult ? (
+                    <>
+                      <p className={executionResult.success ? "text-[#4EC9B0]" : "text-[#FF6B6B]"}>
+                        {`> [TESTS] ${executionResult.testsPassed ?? 0}/${executionResult.totalTests ?? 0} passed`}
+                      </p>
+                      {executionResult.failedTestCaseIndex != null && executionResult.failedTestCaseIndex >= 0 && (
+                        <div className="space-y-1 mt-2 p-2 border border-[#FF6B6B]/20 rounded bg-[#1A0A0A]">
+                          <p className="text-[#FF6B6B]">{`> Failed test case #${executionResult.failedTestCaseIndex + 1}`}</p>
+                          {executionResult.expectedOutput && (
+                            <p className="text-[#6A6A6A]">{`Expected: ${executionResult.expectedOutput}`}</p>
+                          )}
+                          {executionResult.actualOutput && (
+                            <p className="text-[#6A6A6A]">{`Got: ${executionResult.actualOutput}`}</p>
+                          )}
+                        </div>
+                      )}
+                      {problem.visibleTestCases?.map((tc, i) => (
+                        <div key={i} className="flex items-center gap-2 text-[#888]">
+                          {executionResult.success || (executionResult.failedTestCaseIndex != null && i < executionResult.failedTestCaseIndex) ? (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-[#4EC9B0]" />
+                          ) : executionResult.failedTestCaseIndex === i ? (
+                            <XCircle className="w-3.5 h-3.5 text-[#FF6B6B]" />
+                          ) : (
+                            <div className="w-3.5 h-3.5 rounded-full border border-[#333]" />
+                          )}
+                          <span>Test {i + 1}: {tc.input.slice(0, 40)}{tc.input.length > 40 ? "…" : ""}</span>
+                        </div>
+                      ))}
+                    </>
+                  ) : (
+                    <p className="text-[#444]">{"> [TESTS] Run or submit to see test results…"}</p>
+                  )}
+                </div>
+              )}
+
+              {terminalTab === "debug" && (
+                <div className="space-y-0.5">
+                  {debugLogs.length === 0 ? (
+                    <p className="text-[#444]">{"> [DEBUG] Session logs will appear here…"}</p>
+                  ) : (
+                    debugLogs.map((line, i) => (
+                      <p key={i} className="text-[#666] leading-relaxed">{`> ${line}`}</p>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Right resize handle */}
+        <div
+          className="w-1 shrink-0 bg-[#141414] hover:bg-[#FFC107]/40 cursor-col-resize flex items-center justify-center group transition-colors"
+          onMouseDown={(e) => rightPanel.startResize(e, -1)}
+        >
+          <GripVertical className="w-3 h-3 text-[#333] group-hover:text-[#FFC107]/60 opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+
+        {/* RIGHT — Chat / AI */}
+        <aside
+          style={{ width: rightPanel.size }}
+          className="shrink-0 flex flex-col bg-[#080808] border-l border-[#1A1A1A] overflow-hidden"
+        >
+          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[#1A1A1A] shrink-0">
+            <MessageSquare className="w-3.5 h-3.5 text-[#FFC107]" />
+            <span className="text-[10px] font-bold text-[#FFC107] uppercase tracking-wider">Battle Chat</span>
+            {isAiGame && (
+              <span className="ml-auto flex items-center gap-1 text-[9px] text-[#4EC9B0]">
+                <Bot className="w-3 h-3" />
+                AI Active
+              </span>
+            )}
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
+            {chatMessages.length === 0 && (
+              <div className="p-3 rounded border border-[#1E1E1E] bg-[#0A0A0A]">
+                <p className="text-[10px] text-[#FFC107] font-bold mb-1 flex items-center gap-1">
+                  <Zap className="w-3 h-3" />
+                  {isAiGame ? (isPractice ? "Friendly AI Coach" : "AI Opponent") : "System"}
+                </p>
+                <p className="text-[11px] text-[#6A6A6A] leading-relaxed">
+                  {isAiGame
+                    ? "Ask for hints or strategy tips. The AI will respond during the battle."
+                    : "Chat with your opponent. Stay focused — tab switches are monitored."}
+                </p>
+              </div>
+            )}
+
+            {chatMessages.map((msg) => (
+              <div
+                key={msg.id}
+                className={`p-2.5 rounded border text-[11px] leading-relaxed ${
+                  msg.isAi
+                    ? "border-[#FFC107]/20 bg-[#FFC107]/5"
+                    : msg.senderId === user.id
+                      ? "border-[#2A2A2A] bg-[#111] ml-4"
+                      : "border-[#1E1E1E] bg-[#0A0A0A] mr-4"
+                }`}
+              >
+                <p className={`text-[9px] font-bold mb-1 uppercase tracking-wider ${
+                  msg.isAi ? "text-[#FFC107]" : "text-[#6A6A6A]"
+                }`}>
+                  {msg.senderName}
+                </p>
+                <p className="text-[#C8C8C8] whitespace-pre-wrap">{msg.message}</p>
+              </div>
+            ))}
+            <div ref={chatEndRef} />
+          </div>
+
+          <div className="shrink-0 p-3 border-t border-[#1A1A1A]">
+            <div className="flex gap-2">
+              <input
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSendChat()}
+                disabled={battleFinished}
+                placeholder="Send message…"
+                className="flex-1 bg-[#0A0A0A] border border-[#2A2A2A] rounded px-3 py-2 text-xs text-[#E8E8E8] placeholder-[#444] focus:border-[#FFC107]/40 outline-none transition-colors"
+              />
+              <button
+                onClick={handleSendChat}
+                disabled={battleFinished || !chatInput.trim()}
+                className="p-2 bg-[#141414] hover:bg-[#1C1C1C] border border-[#2A2A2A] hover:border-[#FFC107]/40 rounded text-[#FFC107] disabled:opacity-40 transition-colors"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </aside>
       </div>
 
-      {/* ── Status Bar ────────────────────────────────── */}
-      <footer className="h-8 bg-gradient-to-r from-[#FFC107] to-[#FFD54F] border-t border-[#FFC107]/20 flex items-center px-4 text-[10px] text-black font-bold uppercase tracking-wider shrink-0">
-        <span>CodeWar Arena</span>
-        <span className="mx-2">•</span>
-        <span>{currentLang.label}</span>
+      {/* ── Status bar ────────────────────────────────────── */}
+      <footer className="h-7 bg-[#0A0A0A] border-t border-[#1A1A1A] flex items-center px-4 text-[10px] shrink-0">
+        <span className="text-[#FFC107] font-bold uppercase tracking-wider">CodeWar Arena</span>
+        <span className="mx-2 text-[#333]">•</span>
+        <span className="text-[#6A6A6A]">{SUPPORTED_LANGUAGES.find((l) => l.value === language)?.label}</span>
         <div className="flex-1" />
-        <div className="flex items-center gap-3">
-          <span>{players.filter((p) => p.isSolved).length}/{players.length} Solved</span>
-          <div className="w-1.5 h-1.5 rounded-full bg-black/40 animate-pulse" />
-          <span>Auto-saving</span>
+        <div className="flex items-center gap-3 text-[#555]">
+          <span className="flex items-center gap-1.5">
+            <div className="w-1.5 h-1.5 rounded-full bg-[#4EC9B0]" />
+            Auto-saving
+          </span>
+          {!isPractice && (
+            <span className="text-[#444]">|</span>
+          )}
+          {!isPractice && (
+            <span>Warnings: {displayViolationCount}/3</span>
+          )}
         </div>
       </footer>
 
-      {/* ── Results Modal ─────────────────────────────── */}
+      {/* ── Results modal ─────────────────────────────────── */}
       {battleFinished && (
-        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-[#0D0D0D] border border-[#FFC107]/20 rounded-lg overflow-hidden shadow-2xl">
+        <div className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-[#0A0A0A] border border-[#FFC107]/25 rounded-lg overflow-hidden shadow-2xl">
             <div className="bg-gradient-to-r from-[#FFC107] to-[#FFD54F] px-6 py-4 flex items-center gap-3">
               <Trophy className="w-6 h-6 text-black" />
               <h2 className="text-sm font-bold text-black uppercase tracking-wider">
@@ -497,27 +1071,32 @@ const formatTime = (seconds: number) => {
 
             <div className="p-4 space-y-2">
               {players.map((p) => (
-                <div key={p.id} className={`flex items-center gap-3 px-3 py-2 rounded border ${
-                  p.id === user.id
-                    ? "bg-[#FFC107]/10 border-[#FFC107]/20"
-                    : "bg-[#111111] border-[#555555]"
-                }`}>
-                  {p.isSolved ? (
-                    <CheckCircle2 className="w-4 h-4 text-[#00cc44]" />
+                <div
+                  key={p.id}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded border ${
+                    p.id === user.id
+                      ? "bg-[#FFC107]/8 border-[#FFC107]/25"
+                      : "bg-[#111] border-[#222]"
+                  }`}
+                >
+                  {p.isSolved || p.progress >= 100 ? (
+                    <CheckCircle2 className="w-4 h-4 text-[#4EC9B0] shrink-0" />
                   ) : (
-                    <XCircle className="w-4 h-4 text-[#ff6b6b]" />
+                    <XCircle className="w-4 h-4 text-[#FF6B6B] shrink-0" />
                   )}
-                  <span className="flex-1 text-sm text-[#ffffff]">
+                  <span className="flex-1 text-sm text-white">
                     {p.username}
-                    {p.id === user.id && <span className="text-[#8A8A8A] ml-1">(you)</span>}
+                    {p.id === user.id && <span className="text-[#6A6A6A] ml-1">(you)</span>}
                   </span>
-                  <span className="text-xs text-[#8A8A8A]">{Math.floor(p.progress)}% · {p.currentScore}pts</span>
+                  <span className="text-xs text-[#6A6A6A] font-mono">
+                    {Math.floor(p.progress)}% · {p.currentScore ?? 0}pts
+                  </span>
                 </div>
               ))}
             </div>
 
             {isFlagged && (
-              <div className="mx-4 mb-4 p-3 bg-[#ff6b6b]/20 border border-[#ff6b6b]/30 rounded text-xs text-[#ff6b6b]">
+              <div className="mx-4 mb-4 p-3 bg-[#FF6B6B]/10 border border-[#FF6B6B]/30 rounded text-xs text-[#FF6B6B]">
                 <p className="font-semibold mb-1">Violations Detected</p>
                 <p>Your submission has been flagged for contest violations.</p>
               </div>
@@ -525,8 +1104,8 @@ const formatTime = (seconds: number) => {
 
             <div className="px-4 pb-4">
               <button
-                onClick={onExitBattle}
-                className="w-full py-2.5 bg-[#FFC107] hover:bg-[#FFD54F] text-black font-bold text-sm rounded transition-colors"
+                onClick={handleExit}
+                className="w-full py-2.5 bg-[#FFC107] hover:bg-[#FFD54F] text-black font-bold text-sm rounded transition-colors shadow-[0_0_16px_rgba(255,193,7,0.2)]"
               >
                 Return to Lobby
               </button>
