@@ -1,11 +1,281 @@
 @import url('https://fonts.googleapis.com/css2?family=Alex+Brush&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;600;700&display=swap');
 @import "tailwindcss";
 
-/* @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace;
-  --font-cursive: "Great Vibes", cursive;
-} */
+/* ─── CodeWar Battle Arena — VS Code + CP Theme ─────────────── */
+:root {
+  --cw-black: #050505;
+  --cw-bg: #0a0a0a;
+  --cw-panel: #080808;
+  --cw-surface: #111111;
+  --cw-border: #1e1e1e;
+  --cw-border-subtle: #2a2a2a;
+  --cw-gold: #ffc107;
+  --cw-gold-dim: #ffd54f;
+  --cw-gold-glow: rgba(255, 193, 7, 0.25);
+  --cw-teal: #4ec9b0;
+  --cw-red: #ff4444;
+  --cw-warning: #ffcc00;
+  --cw-text: #e8e8e8;
+  --cw-muted: #6a6a6a;
+  --cw-mono: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+  --cw-serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --cw-sans: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+/* Battle arena root — mandatory fullscreen container */
+.battle-arena {
+  font-family: var(--cw-sans);
+  background: var(--cw-black);
+  color: var(--cw-text);
+}
+
+/* VS Code title bar */
+.vscode-titlebar {
+  height: 2.75rem;
+  background: var(--cw-bg);
+  border-bottom: 1px solid var(--cw-border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+}
+
+/* VS Code status bar */
+.vscode-statusbar {
+  height: 1.625rem;
+  background: var(--cw-bg);
+  border-top: 1px solid var(--cw-border);
+  font-size: 0.625rem;
+  letter-spacing: 0.04em;
+}
+
+/* Panel chrome */
+.vscode-panel {
+  background: var(--cw-panel);
+  border-color: var(--cw-border);
+}
+
+.vscode-panel-header {
+  background: var(--cw-bg);
+  border-bottom: 1px solid var(--cw-border);
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--cw-gold);
+}
+
+.vscode-tab {
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--cw-muted);
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.vscode-tab.active {
+  color: var(--cw-gold);
+  border-bottom: 2px solid var(--cw-gold);
+}
+
+.vscode-tab:hover:not(.active) {
+  color: #aaaaaa;
+}
+
+/* Resize handles */
+.resize-handle-col {
+  width: 4px;
+  background: #141414;
+  cursor: col-resize;
+  transition: background 0.15s;
+}
+
+.resize-handle-col:hover {
+  background: rgba(255, 193, 7, 0.4);
+}
+
+.resize-handle-row {
+  height: 4px;
+  background: #141414;
+  cursor: row-resize;
+  transition: background 0.15s;
+}
+
+.resize-handle-row:hover {
+  background: rgba(255, 193, 7, 0.4);
+}
+
+/* Premium solved counter — Codeforces / LeetCode style */
+.badge-solved {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.875rem;
+  border-radius: 0.375rem;
+  background: linear-gradient(180deg, #161616 0%, #111111 100%);
+  border: 1px solid var(--cw-border-subtle);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.badge-solved-label {
+  font-family: var(--cw-serif);
+  font-size: 0.8125rem;
+  color: #9a9a9a;
+  letter-spacing: 0.02em;
+}
+
+.badge-solved-value {
+  font-family: var(--cw-serif);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--cw-teal);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Premium warning badge */
+.badge-warning {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.875rem;
+  border-radius: 0.375rem;
+  background: linear-gradient(180deg, #221010 0%, #1a0c0c 100%);
+  border: 1px solid #cc3333;
+  box-shadow: inset 0 1px 0 rgba(255, 68, 68, 0.08), 0 0 8px rgba(255, 68, 68, 0.12);
+}
+
+.badge-warning.critical {
+  border-color: var(--cw-red);
+  animation: warningPulse 1.5s ease-in-out infinite;
+}
+
+.badge-warning-count {
+  font-family: var(--cw-serif);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--cw-warning);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Visible anti-cheat warning counter */
+.warnings-counter {
+  font-family: var(--cw-serif);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+/* Anti-cheat violation modal */
+.violation-modal {
+  box-shadow:
+    0 0 0 1px rgba(255, 193, 7, 0.08),
+    0 24px 48px rgba(0, 0, 0, 0.7),
+    0 0 40px rgba(255, 193, 7, 0.06);
+  animation: violationModalIn 0.25s ease-out;
+}
+
+@keyframes violationModalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes warningPulse {
+  0%, 100% { box-shadow: inset 0 1px 0 rgba(255, 68, 68, 0.08), 0 0 8px rgba(255, 68, 68, 0.15); }
+  50% { box-shadow: inset 0 1px 0 rgba(255, 68, 68, 0.12), 0 0 14px rgba(255, 68, 68, 0.35); }
+}
+
+/* Timer display */
+.battle-timer {
+  font-family: var(--cw-mono);
+  font-size: 0.875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.battle-timer.urgent {
+  color: #ff6b6b;
+}
+
+/* Terminal bottom panel — VS Code integrated terminal */
+.terminal-panel {
+  background: var(--cw-panel);
+  border-top: 1px solid var(--cw-border);
+}
+
+.terminal-panel-body {
+  font-family: var(--cw-mono);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+
+/* Easy Bot right sidebar */
+.bot-sidebar {
+  background: var(--cw-panel);
+  border-left: 1px solid var(--cw-border);
+}
+
+.bot-card {
+  background: var(--cw-bg);
+  border: 1px solid var(--cw-border);
+  border-radius: 0.375rem;
+}
+
+.bot-hint-btn {
+  background: linear-gradient(180deg, rgba(255, 193, 7, 0.15) 0%, rgba(255, 193, 7, 0.06) 100%);
+  border: 1px solid rgba(255, 193, 7, 0.35);
+  color: var(--cw-gold);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.bot-hint-btn:hover:not(:disabled) {
+  background: rgba(255, 193, 7, 0.22);
+  border-color: rgba(255, 193, 7, 0.55);
+}
+
+/* Monaco editor wrapper — prevents white flash */
+.codewar-editor {
+  background: var(--cw-bg);
+}
+
+.codewar-editor .monaco-editor,
+.codewar-editor .monaco-editor-background,
+.codewar-editor .monaco-editor .margin {
+  background-color: var(--cw-bg) !important;
+}
+
+/* VS Code editor tab bar */
+.vscode-editor-tabbar {
+  background: var(--cw-bg);
+  border-bottom: 1px solid var(--cw-border-subtle);
+  box-shadow: 0 1px 0 rgba(255, 193, 7, 0.05);
+}
+
+/* Gold section headers in problem panel */
+.cw-section-title {
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--cw-gold);
+}
+
+/* Code sample blocks */
+.cw-code-block {
+  background: var(--cw-bg);
+  border: 1px solid var(--cw-border-subtle);
+  border-radius: 0.25rem;
+  font-family: var(--cw-mono);
+  font-size: 0.75rem;
+}
 
 /* Premium Silver Cinematic text typography */
 .text-silver-cursive-shimmer {
