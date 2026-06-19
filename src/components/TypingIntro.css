@@ -1,0 +1,187 @@
+@import url('https://fonts.googleapis.com/css2?family=Alex+Brush&display=swap');
+.intro-container {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  background:
+    radial-gradient(circle at center,
+      #0b0b0b 0%,
+      #050505 50%,
+      #000000 100%);
+
+  perspective: 1000px;
+}
+
+/* Nebula */
+.intro-container::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+
+  background:
+    radial-gradient(circle at 20% 30%,
+      rgba(255,255,255,0.06),
+      transparent 30%),
+
+    radial-gradient(circle at 80% 20%,
+      rgba(255,255,255,0.04),
+      transparent 35%),
+
+    radial-gradient(circle at 50% 80%,
+      rgba(255,255,255,0.03),
+      transparent 40%);
+
+  filter: blur(90px);
+
+  animation: nebulaMove 20s ease-in-out infinite alternate;
+}
+
+/* Infinite Grid */
+.intro-container::after {
+  content: "";
+
+  position: absolute;
+
+  bottom: -20%;
+  left: -50%;
+
+  width: 200%;
+  height: 100%;
+
+  background-image:
+    linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px);
+
+  background-size: 50px 50px;
+
+  transform:
+    rotateX(80deg)
+    translateZ(-100px);
+
+  animation: gridMove 10s linear infinite;
+}
+
+.content {
+  position: relative;
+  z-index: 10;
+  text-align: center;
+}
+
+/* Main Title */
+
+.clash-title {
+  font-family: "Alex Brush", cursive;
+
+  font-size: 150px;
+
+  color: white;
+
+  letter-spacing: 2px;
+
+  text-shadow:
+    0 0 5px #fff,
+    0 0 15px #fff,
+    0 0 40px rgba(255,255,255,.7);
+}
+
+/* Subtitle */
+
+.subtitle {
+  margin-top: 20px;
+
+  color: rgba(255,255,255,.75);
+
+  font-size: 15px;
+
+  letter-spacing: 8px;
+
+  text-transform: uppercase;
+
+  animation: fadeUp 2s ease;
+}
+
+
+
+
+/* Cursor */
+
+.cursor {
+  animation: blink .8s infinite;
+}
+
+/* Animations */
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes twinkle {
+  50% {
+    opacity: .2;
+  }
+}
+
+@keyframes floatStar {
+  from {
+    transform: translateY(0);
+  }
+
+  to {
+    transform: translateY(-30px);
+  }
+}
+
+@keyframes gridMove {
+  from {
+    background-position: 0 0;
+  }
+
+  to {
+    background-position: 0 50px;
+  }
+}
+
+@keyframes nebulaMove {
+  from {
+    transform: scale(1)
+      translateX(-30px);
+  }
+
+  to {
+    transform: scale(1.2)
+      translateX(30px);
+  }
+}
+
+/* Mobile */
+
+@media (max-width: 768px) {
+
+  .clash-title {
+    font-size: 70px;
+  }
+
+  .subtitle {
+    font-size: 11px;
+    letter-spacing: 4px;
+  }
+}

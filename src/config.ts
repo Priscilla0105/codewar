@@ -1,0 +1,1 @@
+export const API_URL = "https://codewar-gt53.onrender.com";

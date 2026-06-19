@@ -1,0 +1,6 @@
+{
+  "name": "Clash of Coders",
+  "description": "Real-time 1v1 multi-language coding battles with anti-cheat protections, matchmaking, code execute sandbox, and AI opponent.",
+  "requestFramePermissions": ["fullscreen"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
